@@ -31,8 +31,33 @@
     $('mode').disabled=!['IDLE','FAILED','READY','RESULT','ERROR'].includes(state);
     for(const [step,match] of [['align','ALIGN'],['calibrate','CALIBRATING'],['validate','VALIDATING'],['play','PLAYING']])$('step-'+step).classList.toggle('active',state===match||(step==='calibrate'&&state==='TRAINING')||(step==='play'&&state==='COUNTDOWN'));
   }
-  function overlay(title,copy,next,label,recalibrate=false){
-    $('overlay').hidden=false;$('overlay-kicker').textContent='WEBEYETRACK · CNN';$('overlay-title').textContent=title;$('overlay-copy').textContent=copy;
+  const DEFAULT_HERO_SVG=`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="heroEyeGrad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34d399"/><stop offset="50%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs><polygon points="32,4 58,18 58,46 32,60 6,46 6,18" stroke="url(#heroEyeGrad)" stroke-width="2.5" fill="rgba(6,182,212,0.10)"/><path d="M12 32C18 21.5 24.8 17 32 17C39.2 17 46 21.5 52 32C46 42.5 39.2 47 32 47C24.8 47 18 42.5 12 32Z" stroke="url(#heroEyeGrad)" stroke-width="3" fill="rgba(16,185,129,0.14)"/><circle cx="32" cy="32" r="9" fill="url(#heroEyeGrad)"/><circle cx="32" cy="32" r="3.8" fill="#050811"/><circle cx="35" cy="29" r="2" fill="#ffffff"/></svg>`;
+  function getTierData(topPct){
+    const tiers=[
+      {max:3,key:'CHALLENGER',name:'챌린저',c1:'#38bdf8',c2:'#fbbf24',c3:'#f472b6',glow:'rgba(56,189,248,0.52)',crown:true,wings:3},
+      {max:10,key:'MASTER',name:'마스터',c1:'#c084fc',c2:'#e879f9',c3:'#fbbf24',glow:'rgba(192,132,252,0.48)',crown:true,wings:2},
+      {max:22,key:'DIAMOND',name:'다이아',c1:'#38bdf8',c2:'#818cf8',c3:'#e0f2fe',glow:'rgba(56,189,248,0.42)',crown:true,wings:2},
+      {max:38,key:'PLATINUM',name:'플래티넘',c1:'#2dd4bf',c2:'#10b981',c3:'#99f6e4',glow:'rgba(45,212,191,0.38)',crown:false,wings:2},
+      {max:58,key:'GOLD',name:'골드',c1:'#fbbf24',c2:'#d97706',c3:'#fef08a',glow:'rgba(251,191,36,0.38)',crown:false,wings:1},
+      {max:80,key:'BRONZE',name:'브론즈',c1:'#d97706',c2:'#92400e',c3:'#fdba74',glow:'rgba(217,119,6,0.32)',crown:false,wings:1},
+      {max:100,key:'IRON',name:'아이언',c1:'#94a3b8',c2:'#475569',c3:'#cbd5e1',glow:'rgba(148,163,184,0.28)',crown:false,wings:0}
+    ];
+    const t=tiers.find(x=>topPct<=x.max)||tiers[tiers.length-1];
+    const gid='tg_'+t.key;
+    const wingPaths=t.wings>=2?`<path d="M12 28L3 18L8 33L4 42L15 39Z" fill="url(#${gid})" opacity="0.85"/><path d="M52 28L61 18L56 33L60 42L49 39Z" fill="url(#${gid})" opacity="0.85"/>`:t.wings===1?`<path d="M13 30L6 23L10 36L16 38Z" fill="url(#${gid})" opacity="0.75"/><path d="M51 30L58 23L54 36L48 38Z" fill="url(#${gid})" opacity="0.75"/>`:'';
+    const crownPath=t.crown?`<polygon points="20,16 25,7 32,13 39,7 44,16 32,19" fill="${t.c3}" stroke="${t.c1}" stroke-width="1.4"/>`:'';
+    const rays=t.wings===3?`<circle cx="32" cy="32" r="28" stroke="${t.c2}" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.75"/>`:'';
+    const svg=`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${gid}" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="${t.c1}"/><stop offset="55%" stop-color="${t.c2}"/><stop offset="100%" stop-color="${t.c3}"/></linearGradient></defs>${rays}${wingPaths}${crownPath}<polygon points="32,11 50,22 46,46 32,57 18,46 14,22" fill="rgba(10,16,32,0.88)" stroke="url(#${gid})" stroke-width="2.8"/><polygon points="32,17 44,25 41,43 32,51 23,43 20,25" fill="url(#${gid})" opacity="0.28"/><polygon points="32,21 40,32 32,45 24,32" fill="url(#${gid})" stroke="${t.c3}" stroke-width="1.5"/><circle cx="32" cy="32" r="3.6" fill="#ffffff"/></svg>`;
+    return {...t,svg};
+  }
+  function overlay(title,copy,next,label,recalibrate=false,tierObj=null){
+    $('overlay').hidden=false;$('overlay-kicker').textContent=tierObj?`${tierObj.key} TIER · 상위 ${tierObj.topPct}%`:'WEBEYETRACK · CNN';$('overlay-title').textContent=title;$('overlay-copy').textContent=copy;
+    const hm=$('hero-mark');
+    if(hm){
+      hm.innerHTML=tierObj?tierObj.svg:DEFAULT_HERO_SVG;
+      hm.style.boxShadow=tierObj?`0 14px 38px rgba(0,0,0,.6), 0 0 34px ${tierObj.glow}`:'0 14px 38px rgba(0,0,0,.55), 0 0 28px rgba(6,182,212,.24)';
+      hm.style.borderColor=tierObj?tierObj.c1:'rgba(56,189,248,.35)';
+    }
     action=next;$('primary').textContent=label;$('primary').disabled=false;$('secondary').hidden=!recalibrate;$('result-stats').hidden=next!=='replay';
   }
   function hideOverlay(){ $('overlay').hidden=true; }
@@ -54,11 +79,11 @@
     if(mode==='fixed')return {x:.5,y:.5};
     const ramp=clamp(tSec/2.2,0,1),ease=.5-.5*Math.cos(ramp*Math.PI);
     if(mode==='figure8'){
-      const p=tSec*.68;
-      return {x:.5+ease*(.27*Math.sin(p)),y:.5+ease*(.17*Math.sin(p*2))};
+      const q=tSec*.54+tSec*tSec*.0018;
+      return {x:.5+ease*(.27*Math.sin(q)),y:.5+ease*(.17*Math.sin(q*2))};
     }
-    const speed=tSec<20?.48:tSec<42?.58:.66,p=tSec*speed;
-    return {x:.5+ease*(.23*Math.sin(p)+.05*Math.sin(p*1.9)),y:.5+ease*(.15*Math.sin(p*.72+.35)+.04*Math.cos(p*1.5))};
+    const p=tSec*.46+tSec*tSec*.0022;
+    return {x:.5+ease*(.24*Math.sin(p)+.05*Math.sin(p*1.9)),y:.5+ease*(.16*Math.sin(p*.74+.35)+.04*Math.cos(p*1.5))};
   }
   function computeMetrics(){
     const retention=validTime>0?clamp(insideTime/validTime*100,0,100):0;
@@ -75,9 +100,9 @@
     else if(finalScore>=50)age=Math.round(41+(65-finalScore)*.75);
     else age=Math.round(clamp(52+(50-finalScore)*.35,52,68));
     const percentile=clamp(Math.round(1+Math.pow(finalScore/100,1.25)*98),1,99);
-    const topPct=Math.max(1,100-percentile);
-    const tier=percentile>=95?'마스터':percentile>=85?'다이아':percentile>=72?'플래티넘':percentile>=55?'골드':percentile>=35?'실버':'브론즈';
-    return {retention,avgSmooth,currentScore,finalScore,age,percentile,topPct,tier};
+    const topPct=clamp(100-percentile,1,99);
+    const tierInfo=getTierData(topPct);
+    return {retention,avgSmooth,currentScore,finalScore,age,percentile,topPct,tier:tierInfo.name,tierKey:tierInfo.key,tierInfo:{...tierInfo,topPct}};
   }
   function computeIrisRatio(l,outer,inner,iris){
     const a=l[outer],b=l[inner],c=l[iris];
@@ -235,7 +260,7 @@
     setState('READY');status('체험 준비 완료','good');
     $('quality').textContent=strictFailed?'홍채 부드러운 추적 모드 적용':`보정 완료 · 90% 오차 범위 ${report.px}px / ${report.py}px`;
     $('secondary').textContent='다시 보정';
-    overlay('준비됐어요.','천천히 움직이는 초록 구슬을 눈(홍채)으로 부드럽게 따라가 보세요.\n흔들림 없이 따라갈수록 집중 스코어와 분위 레벨이 올라갑니다.','play','60초 챌린지 시작',true);
+    overlay('준비됐어요.','시선을 현혹하는 방해 요소들을 무시하고 에메랄드 구슬만 끝까지 따라가 보세요.\n흔들림 없이 따라갈수록 집중 스코어와 롤 티어가 올라갑니다.','play','60초 챌린지 시작',true);
   }
   function countdown(){if(!quality)quality={median:.09,p90:.15,perPoint:[],stabilityMode:true};hideOverlay();setState('COUNTDOWN');target={x:.5,y:.5};prevTarget={x:.5,y:.5};phaseTime=0;elapsed=0;validTime=0;insideTime=0;focusScore=0;smoothnessSum=0;smoothnessTime=0;streakTime=0;gazeBias={x:0,y:0};resetFilter();paused=true;recovery=0;away=0;pauseAt=0;
     $('stage-title').textContent='가운데 구슬을 바라보세요';$('stage-copy').textContent='구슬 내부가 모두 채워지면 움직이는 구슬 추적이 시작됩니다.';
@@ -244,16 +269,23 @@
     setState('RESULT');notice();status('체험 종료');$('result-stats').replaceChildren();
     const m=computeMetrics();
     const cards=[
-      [m.finalScore+'점','최종 집중력 스코어',`타겟 유지율 ${m.retention.toFixed(1)}%`],
-      [m.age+'세','추정 시선 신체 나이',m.finalScore>=85?'20대 초반급 시선 제어':'안정적인 홍채 추적 반응'],
-      [`${m.percentile}분위`,`1-100% 분위 레벨 (${m.tier})`,`전체 상위 ${m.topPct}% 수준`]
+      {value:m.finalScore+'점',label:'최종 집중력 스코어',sub:`타겟 유지율 ${m.retention.toFixed(1)}%`},
+      {value:m.age+'세',label:'추정 시선 신체 나이',sub:m.finalScore>=85?'20대 초반급 시선 제어':'안정적인 홍채 추적 반응'},
+      {value:m.tier,label:`상위 ${m.topPct}%`,sub:`시선 집중 티어 (${m.tierKey})`,svg:m.tierInfo.svg,color:m.tierInfo.c1}
     ];
-    for(const [value,label,sub]of cards){
+    for(const c of cards){
       const div=document.createElement('div'),v=document.createElement('strong'),l=document.createElement('span'),s=document.createElement('small');
-      v.textContent=value;l.textContent=label;s.textContent=sub;div.append(v,l,s);$('result-stats').append(div);
+      if(c.svg){
+        const icon=document.createElement('div');
+        icon.className='tier-badge-icon';
+        icon.innerHTML=c.svg;
+        div.append(icon);
+      }
+      if(c.color)v.style.color=c.color;
+      v.textContent=c.value;l.textContent=c.label;s.textContent=c.sub;div.append(v,l,s);$('result-stats').append(div);
     }
-    const copy=aborted?'인식이 오래 끊겨 체험을 멈췄어요.\n위치를 맞추고 다시 도전해 보세요.':`타겟 유지율 ${m.retention.toFixed(1)}% · 홍채 흔들림 안정도 ${Math.round(m.avgSmooth)}%\n움직이는 타겟을 눈동자로 부드럽게 따라간 종합 결과입니다.`;
-    overlay(aborted?'잠시 쉬어도 괜찮아요':m.finalScore>=85?'놀라운 홍채 집중력이에요!':elapsed>=48?'60초, 시선 추적을 완주했어요':'좋은 도전이었어요',copy,'replay','다시 도전',true);
+    const copy=aborted?'인식이 오래 끊겨 체험을 멈췄어요.\n위치를 맞추고 다시 도전해 보세요.':`타겟 유지율 ${m.retention.toFixed(1)}% · 홍채 흔들림 안정도 ${Math.round(m.avgSmooth)}%\n방해 요소를 이겨내고 달성한 티어는 [${m.tier} · 상위 ${m.topPct}%] 입니다.`;
+    overlay(aborted?'잠시 쉬어도 괜찮아요':`${m.tier} 티어 달성! (상위 ${m.topPct}%)`,copy,'replay','다시 도전',true,m.tierInfo);
   }
   function play(dt,now){
     const tracked=good&&gaze&&now-lastAt<500&&!document.hidden;
@@ -297,43 +329,114 @@
       streakTime=Math.max(0,streakTime-dt*2.4);
       if(away>.55){
         focusScore=Math.max(0,focusScore-1.8*dt);
-        notice(eyeSpeed>=.22||eyeSpread>=.23?'눈동자 흔들림 · 구슬을 부드럽게 따라가세요':'초록 구슬을 바라봐 주세요','warn');
+        notice(eyeSpeed>=.22||eyeSpread>=.23?'눈동자 흔들림 · 방해물을 무시하고 구슬을 따라가세요':'에메랄드 구슬을 바라봐 주세요','warn');
       }
     }
     positionNotice();
     status(inside?'홍채 추적 중':'시선 흔들림 감지',inside?'good':'warn');
     if(elapsed>=60)finish();
   }
+  function repelFromTarget(nx,ny){
+    const dx=nx-target.x,dy=ny-target.y,d=Math.hypot(dx,dy);
+    if(d<.21){
+      const push=(.21-d),ang=d>1e-3?Math.atan2(dy,dx):.8;
+      return {x:clamp(nx+Math.cos(ang)*push,.10,.90),y:clamp(ny+Math.sin(ang)*push,.14,.86)};
+    }
+    return {x:clamp(nx,.10,.90),y:clamp(ny,.14,.86)};
+  }
+  function drawDistractors(now,w,h){
+    const t=elapsed+now*.0004;
+    ctx.save();
+    // 1. Decoy Pulsing Orb (Magenta/Coral)
+    {
+      const pos=repelFromTarget(.5-.31*Math.cos(t*.92+1.1),.5+.24*Math.sin(t*1.25+.7));
+      const dx=pos.x*w,dy=pos.y*h,pulse=1+Math.sin(now/180)*.22;
+      ctx.beginPath();ctx.arc(dx,dy,22*pulse,0,2*Math.PI);ctx.fillStyle='rgba(244,63,94,0.14)';ctx.fill();
+      ctx.beginPath();ctx.arc(dx,dy,13,0,2*Math.PI);ctx.fillStyle='#f43f5e';ctx.fill();
+      ctx.beginPath();ctx.arc(dx,dy,18+((now/18)%18),0,2*Math.PI);ctx.strokeStyle='rgba(251,113,133,0.42)';ctx.lineWidth=1.5;ctx.stroke();
+      ctx.font='700 10px "Pretendard",sans-serif';ctx.textAlign='center';ctx.fillStyle='#fda4af';
+      ctx.fillText('FAKE',dx,dy-20);
+    }
+    // 2. Spinning Cyber Hexagon & Radar Ring (Violet)
+    {
+      const pos=repelFromTarget(.5+.33*Math.sin(t*.78+2.4),.5-.25*Math.cos(t*1.05+1.9));
+      const dx=pos.x*w,dy=pos.y*h,ang=now/420;
+      ctx.save();ctx.translate(dx,dy);ctx.rotate(ang);
+      ctx.beginPath();
+      for(let i=0;i<6;i++){const a=i*Math.PI/3,px=Math.cos(a)*16,py=Math.sin(a)*16;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+      ctx.closePath();ctx.strokeStyle='rgba(168,85,247,0.72)';ctx.lineWidth=2;ctx.stroke();
+      ctx.fillStyle='rgba(168,85,247,0.15)';ctx.fill();
+      ctx.restore();
+    }
+    // 3. Golden Starburst Flare (Amber)
+    {
+      const pos=repelFromTarget(.22+.12*Math.sin(t*1.4),.26+.50*(.5+.5*Math.cos(t*.85)));
+      const dx=pos.x*w,dy=pos.y*h,flash=.55+.45*Math.sin(now/140);
+      ctx.save();ctx.translate(dx,dy);ctx.rotate(-now/500);
+      ctx.beginPath();
+      for(let i=0;i<8;i++){const r=i%2===0?16*flash:5,a=i*Math.PI/4;if(i===0)ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
+      ctx.closePath();ctx.fillStyle=`rgba(251,191,36,${(0.65*flash).toFixed(2)})`;ctx.fill();
+      ctx.restore();
+    }
+    // 4. Peripheral Neon Comet Streak (Electric Blue)
+    {
+      const pos=repelFromTarget(.78-.14*Math.cos(t*1.55),.74-.48*(.5+.5*Math.sin(t*1.1)));
+      const dx=pos.x*w,dy=pos.y*h;
+      for(let k=4;k>=0;k--){
+        const tail=repelFromTarget(.78-.14*Math.cos((t-k*.045)*1.55),.74-.48*(.5+.5*Math.sin((t-k*.045)*1.1)));
+        ctx.beginPath();ctx.arc(tail.x*w,tail.y*h,Math.max(2,8-k*1.4),0,2*Math.PI);
+        ctx.fillStyle=`rgba(56,189,248,${(0.48-k*0.09).toFixed(2)})`;ctx.fill();
+      }
+      ctx.beginPath();ctx.arc(dx,dy,6,0,2*Math.PI);ctx.fillStyle='#e0f2fe';ctx.fill();
+    }
+    // 5. Periodic Decoy Alert Badge ("LOOK!" / "+BONUS?")
+    if(Math.sin(now/650)>-.2){
+      const idx=Math.floor(now/2400)%4;
+      const anchors=[[.18,.22],[.82,.22],[.18,.78],[.82,.78]][idx];
+      const pos=repelFromTarget(anchors[0]+Math.sin(now/300)*.02,anchors[1]+Math.cos(now/300)*.02);
+      const dx=pos.x*w,dy=pos.y*h;
+      const labels=['⚡ BONUS?','👁️ LOOK!','✨ +50 PT?','🔥 CATCH!'];
+      ctx.fillStyle='rgba(244,63,94,0.18)';
+      ctx.strokeStyle='rgba(244,63,94,0.55)';
+      ctx.lineWidth=1.4;
+      ctx.beginPath();ctx.roundRect(dx-38,dy-13,76,26,999);ctx.fill();ctx.stroke();
+      ctx.font='700 11px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle='#fda4af';ctx.fillText(labels[idx],dx,dy);
+    }
+    ctx.restore();
+  }
   function drawProgressCircle(x,y,r,progress,labelText,subText=''){
     const p=clamp(progress,0,1);
-    ctx.beginPath();ctx.arc(x,y,r+10+Math.sin(performance.now()/500)*2,0,2*Math.PI);ctx.fillStyle='#16836d12';ctx.fill();
-    ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle='#e6f3ec';ctx.fill();
-    ctx.lineWidth=2;ctx.strokeStyle='#16836d40';ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,r+12+Math.sin(performance.now()/450)*2.5,0,2*Math.PI);ctx.fillStyle='rgba(6,182,212,0.12)';ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle='rgba(15,23,42,0.92)';ctx.fill();
+    ctx.lineWidth=2;ctx.strokeStyle='rgba(56,189,248,0.38)';ctx.stroke();
     if(p>0){
       ctx.save();
       ctx.beginPath();ctx.arc(x,y,r-1.5,0,2*Math.PI);ctx.clip();
       const fillTop=y+r-(2*r*p);
-      ctx.fillStyle='#16836d';
+      const grad=ctx.createLinearGradient(x,y-r,x,y+r);
+      grad.addColorStop(0,'#06b6d4');grad.addColorStop(1,'#10b981');
+      ctx.fillStyle=grad;
       ctx.fillRect(x-r,fillTop,r*2,r*2);
       ctx.beginPath();ctx.arc(x,y,(r-1.5)*p,0,2*Math.PI);
-      ctx.fillStyle='rgba(22,131,109,0.55)';ctx.fill();
+      ctx.fillStyle='rgba(52,211,153,0.45)';ctx.fill();
       ctx.restore();
       ctx.beginPath();ctx.arc(x,y,r,-Math.PI/2,-Math.PI/2+p*2*Math.PI);
-      ctx.strokeStyle='#0f6a57';ctx.lineWidth=3.5;ctx.stroke();
+      ctx.strokeStyle='#34d399';ctx.lineWidth=3.5;ctx.stroke();
     }
     ctx.beginPath();ctx.arc(x,y,4,0,2*Math.PI);
-    ctx.fillStyle=p>.52?'#ffffff':'#16836d';ctx.fill();
+    ctx.fillStyle=p>.48?'#ffffff':'#34d399';ctx.fill();
     if(labelText){
-      ctx.font='700 12px "Pretendard","Segoe UI",sans-serif';
+      ctx.font='800 12px "Pretendard","Segoe UI",sans-serif';
       ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle=p>.58?'#ffffff':'#134e41';
+      ctx.fillStyle='#f8fafc';
       ctx.fillText(labelText,x,y+(subText?-1:15));
     }
   }
   function draw(now){
     const {w,h}=size;ctx.clearRect(0,0,w,h);if(!$('overlay').hidden||['ALIGN','IDLE','CONNECTING'].includes(state))return;
     const x=target.x*w,y=target.y*h;
-    if(state==='TRACE')for(const p of checks){ctx.beginPath();ctx.arc(p.x*w,p.y*h,10,0,2*Math.PI);ctx.strokeStyle='#16836d55';ctx.lineWidth=2;ctx.stroke();}
+    if(state==='TRACE')for(const p of checks){ctx.beginPath();ctx.arc(p.x*w,p.y*h,10,0,2*Math.PI);ctx.strokeStyle='rgba(52,211,153,0.45)';ctx.lineWidth=2;ctx.stroke();}
     if(['CALIBRATING','VALIDATING'].includes(state)){
       const list=state==='CALIBRATING'?points:checks;
       const p=clamp(collectTime/(state==='CALIBRATING'?1.2:1.1),0,1);
@@ -347,25 +450,30 @@
       return;
     }
     if(state==='PLAYING'){
+      drawDistractors(now,w,h);
       if($('mode').value!=='fixed'){
         ctx.save();
         for(let step=1;step<=7;step++){
           const future=targetPositionAt(Math.min(60,elapsed+step*.16),$('mode').value);
           ctx.beginPath();
           ctx.arc(future.x*w,future.y*h,Math.max(2,5.5-step*.55),0,2*Math.PI);
-          ctx.fillStyle=`rgba(22,131,109,${(0.22-step*0.025).toFixed(3)})`;
+          ctx.fillStyle=`rgba(52,211,153,${(0.28-step*0.032).toFixed(3)})`;
           ctx.fill();
         }
         ctx.restore();
       }
       const shaking=!$('notice').hidden;
       const r=24;
-      ctx.beginPath();ctx.arc(x,y,r+8+Math.sin(now/600)*1.8,0,2*Math.PI);ctx.fillStyle=shaking?'rgba(209,132,40,0.14)':'rgba(22,131,109,0.12)';ctx.fill();
-      ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle=shaking?'#b87324':'#16836d';ctx.fill();
-      ctx.beginPath();ctx.arc(x-4,y-5,r*.22,0,2*Math.PI);ctx.fillStyle='#ffffff80';ctx.fill();
+      ctx.beginPath();ctx.arc(x,y,r+11+Math.sin(now/500)*2.2,0,2*Math.PI);ctx.fillStyle=shaking?'rgba(245,158,11,0.18)':'rgba(16,185,129,0.18)';ctx.fill();
+      const orbGrad=ctx.createRadialGradient(x-6,y-6,2,x,y,r);
+      if(shaking){orbGrad.addColorStop(0,'#fde68a');orbGrad.addColorStop(.55,'#f59e0b');orbGrad.addColorStop(1,'#b45309');}
+      else{orbGrad.addColorStop(0,'#a7f3d0');orbGrad.addColorStop(.5,'#10b981');orbGrad.addColorStop(1,'#047857');}
+      ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle=orbGrad;ctx.fill();
+      ctx.lineWidth=2;ctx.strokeStyle=shaking?'rgba(251,191,36,0.75)':'rgba(52,211,153,0.85)';ctx.stroke();
+      ctx.beginPath();ctx.arc(x-5,y-6,r*.22,0,2*Math.PI);ctx.fillStyle='rgba(255,255,255,0.65)';ctx.fill();
       ctx.beginPath();ctx.arc(x,y,3.5,0,2*Math.PI);ctx.fillStyle='#ffffff';ctx.fill();
     }
-    if($('show-gaze').checked&&gaze&&now-lastAt<500&&!['CALIBRATING','VALIDATING'].includes(state)){ctx.beginPath();ctx.arc(clamp(gaze.x,0,1)*w,clamp(gaze.y,0,1)*h,7,0,2*Math.PI);ctx.strokeStyle='#8a662b';ctx.lineWidth=2;ctx.stroke();}
+    if($('show-gaze').checked&&gaze&&now-lastAt<500&&!['CALIBRATING','VALIDATING'].includes(state)){ctx.beginPath();ctx.arc(clamp(gaze.x,0,1)*w,clamp(gaze.y,0,1)*h,7,0,2*Math.PI);ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.stroke();}
   }
   function tick(now){
     requestAnimationFrame(tick);const dt=lastLoop?Math.min(.08,(now-lastLoop)/1000):0;lastLoop=now;
@@ -395,7 +503,7 @@
     if(now-diagnosticAt>400){
       diagnosticAt=now;
       const m=computeMetrics();
-      $('diagnostics').textContent=`엔진: WebEyeTrack / BlazeGaze CNN\n가속: ${backend||'준비 중'}\n개인 보정: ${quality?.stabilityMode?'홍채 부드러운 추적 모드':adaptation||'준비 중'}\n상태: ${state}\n눈 인식: ${good?'정상':issue||'대기'}\n추론: ${Math.round(inference)}ms\n집중 스코어: ${m.currentScore}점 (예상 나이 ${m.age}세 / ${m.percentile}분위)\n타겟 유지율: ${m.retention.toFixed(1)}% · 홍채 안정도: ${Math.round(m.avgSmooth)}%\n눈 흔들림 속도: ${eyeSpeed.toFixed(3)}\n시선: ${raw?raw.x.toFixed(2)+', '+raw.y.toFixed(2):'—'}\n오류: ${lastPumpError||'없음'}`;
+      $('diagnostics').textContent=`엔진: WebEyeTrack / BlazeGaze CNN\n가속: ${backend||'준비 중'}\n개인 보정: ${quality?.stabilityMode?'홍채 부드러운 추적 모드':adaptation||'준비 중'}\n상태: ${state}\n눈 인식: ${good?'정상':issue||'대기'}\n추론: ${Math.round(inference)}ms\n집중 스코어: ${m.currentScore}점 (예상 나이 ${m.age}세 / ${m.tier} · 상위 ${m.topPct}%)\n타겟 유지율: ${m.retention.toFixed(1)}% · 홍채 안정도: ${Math.round(m.avgSmooth)}%\n눈 흔들림 속도: ${eyeSpeed.toFixed(3)}\n시선: ${raw?raw.x.toFixed(2)+', '+raw.y.toFixed(2):'—'}\n오류: ${lastPumpError||'없음'}`;
     }
   }
   function resize(){const rect=$('stage').getBoundingClientRect();size={w:rect.width,h:rect.height};const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(size.w*dpr);canvas.height=Math.round(size.h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);positionNotice();}
