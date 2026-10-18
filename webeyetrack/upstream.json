@@ -1,0 +1,120 @@
+{
+  "repository": "https://github.com/RedForestAI/WebEyeTrack",
+  "commit": "75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c",
+  "assets": [
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/LICENSE",
+      "path": "vendor\\LICENSE",
+      "bytes": 1103,
+      "sha256": "f779143d708f5f3d510a155fa751fbf205e0aace2660ccfce972fc9503992c19"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/examples/minimal-example/public/web/group1-shard1of1.bin",
+      "path": "public\\web\\group1-shard1of1.bin",
+      "bytes": 624072,
+      "sha256": "c030a762a2d21ac0f3c59700a723b2d8790f2003b3f8e72fbe31129fcb234e58"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/examples/minimal-example/public/web/model.json",
+      "path": "public\\web\\model.json",
+      "bytes": 44988,
+      "sha256": "a214f074ccd4724cf4ebf008814a05485e7eaa5faf5aaeb85e66b24a1af55688"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/BlazeGaze.ts",
+      "path": "vendor\\src\\BlazeGaze.ts",
+      "bytes": 1649,
+      "sha256": "fdece7f2c2e033bf19c6955216d3a7041f71e04701811c461cee45c4127edc9d"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/FaceLandmarkerClient.ts",
+      "path": "vendor\\src\\FaceLandmarkerClient.ts",
+      "bytes": 1212,
+      "sha256": "c4c465d27cf53b89049ced5aa137362d1235f2919a2afc0e2b5eb85044425402"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/FacemeshDatas.ts",
+      "path": "vendor\\src\\FacemeshDatas.ts",
+      "bytes": 92768,
+      "sha256": "44c3a91bf9eef6e924d1b71ed15002d97bf94a44f69ea2ca71041e120da6c96f"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/WebEyeTrack.ts",
+      "path": "vendor\\src\\WebEyeTrack.ts",
+      "bytes": 16933,
+      "sha256": "bc1e04d87e97431b4ae36a75ce73820fc8df1660b4e3fd8ad389b33b7180c836"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/WebEyeTrackProxy.ts",
+      "path": "vendor\\src\\WebEyeTrackProxy.ts",
+      "bytes": 2864,
+      "sha256": "1fd7a9bcbef559e24fc22c50665f0a24189ec3226479c623dfdc393b761deae4"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/WebEyeTrackWorker.ts",
+      "path": "vendor\\src\\WebEyeTrackWorker.ts",
+      "bytes": 1376,
+      "sha256": "64c99aa4f3284d8ebccae635c2c61a9c1ab451ad882d35f0fc6aa2530fa9e6e8"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/WebcamClient.ts",
+      "path": "vendor\\src\\WebcamClient.ts",
+      "bytes": 2764,
+      "sha256": "ea4a5b9512b60eed953b53a9c2ee331cce1a1b8d6185b47ffac854263db5575f"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/index.ts",
+      "path": "vendor\\src\\index.ts",
+      "bytes": 387,
+      "sha256": "e71dcecdffa4d8083763c1ab58be468039743ae3f0950a3e7a3105f5dcbb2a27"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/types.ts",
+      "path": "vendor\\src\\types.ts",
+      "bytes": 962,
+      "sha256": "020a5cc2b24c2d4e3979beb04732cdc1b72606db736950b803ea9de8cb780e06"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/typings/worker-loader.d.ts",
+      "path": "vendor\\src\\typings\\worker-loader.d.ts",
+      "bytes": 140,
+      "sha256": "88e258758ac1d816122f616daa04b44cb7a5c4048fe31fb81266766455a49b19"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/utils/filter.ts",
+      "path": "vendor\\src\\utils\\filter.ts",
+      "bytes": 1581,
+      "sha256": "639b11040cee469dd1740c763c8b4c10484bdc7cbd3db3bcfcf66de94043b52e"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/utils/mathUtils.ts",
+      "path": "vendor\\src\\utils\\mathUtils.ts",
+      "bytes": 22034,
+      "sha256": "0e7fd644c92a846482ca5e939e52fdbaf181400863fb3772d8740e63499f60d9"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/utils/misc.ts",
+      "path": "vendor\\src\\utils\\misc.ts",
+      "bytes": 888,
+      "sha256": "22a68bc30bba08f27d8ad054f28e1ece40a875cec094f83cb2bc15b2263ac236"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/utils/safeSVD.ts",
+      "path": "vendor\\src\\utils\\safeSVD.ts",
+      "bytes": 552,
+      "sha256": "b0b5205184ef91c04d6cfe60fa38fa2382629bc05f1e9019014421b6110b0a9f"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/RedForestAI/WebEyeTrack/75fbd2f5f784f2eb3a39675a8dcbf1b01c697f1c/js/src/utils/vis.ts",
+      "path": "vendor\\src\\utils\\vis.ts",
+      "bytes": 1158,
+      "sha256": "927deac2d7648d35060942478211c2f6b3b68238f9fd805680823dcaea4b96bf"
+    },
+    {
+      "url": "https://storage.googleapis.com/mediapipe-assets/portrait.jpg",
+      "path": "test-assets\\portrait.jpg",
+      "bytes": 176561,
+      "sha256": "a6f11efaa834706db23f275b6115058fa87fc7f14362681e6abe14e82749de3e"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "version": "3.5.3",
+  "files": [
+    {
+      "file": "public/webgazer-lib.js",
+      "url": "https://cdn.jsdelivr.net/npm/webgazer@3.5.3/dist/webgazer.js",
+      "bytes": 1895169,
+      "sha256": "e276d085eb490b5ba65481c368371be03b1a358d12d95336af0a8239f643f8e0"
+    },
+    {
+      "file": "public/WEBGAZER-LICENSE.md",
+      "url": "https://raw.githubusercontent.com/brownhci/WebGazer/3.5.3/LICENSE.md",
+      "bytes": 717,
+      "sha256": "11cbcea71578ce59935f5d839d331268f2be5f2fb155ed869dfa24252e9b49f8"
+    },
+    {
+      "file": "reference/webgazer-index.mjs",
+      "url": "https://raw.githubusercontent.com/brownhci/WebGazer/3.5.3/src/index.mjs",
+      "bytes": 36343,
+      "sha256": "b55a6013a2e30bd35ccb6c5efaf181deed1c6095d350677a7ce811f28091a9ca"
+    },
+    {
+      "file": "reference/webgazer-facemesh.mjs",
+      "url": "https://raw.githubusercontent.com/brownhci/WebGazer/3.5.3/src/facemesh.mjs",
+      "bytes": 5840,
+      "sha256": "7a4560dff2bc5c5d14168cc5ba5ecb197e261a2de01d42ee57cb876e30ee1fce"
+    },
+    {
+      "file": "reference/webgazer-ridge.mjs",
+      "url": "https://raw.githubusercontent.com/brownhci/WebGazer/3.5.3/src/ridgeReg.mjs",
+      "bytes": 2775,
+      "sha256": "3ede9890ff73b59f483177169d2487dcc4d98e4866f1f950e352394c43a38c5b"
+    }
+  ]
+}

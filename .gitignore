@@ -1,0 +1,28 @@
+# Dependencies & build caches
+node_modules/
+webeyetrack/node_modules/
+
+# Logs & runtime files
+*.log
+*.pid
+webeyetrack/*.log
+webeyetrack/*.pid
+
+# Reference / unused comparison bundles & scratch files
+webeyetrack/reference/
+webeyetrack/realeye-bridge.js
+webeyetrack/webgazer-bridge.js
+webeyetrack/verify.cjs
+webeyetrack/public/realeye*
+webeyetrack/public/REALEYE*
+webeyetrack/public/webgazer*
+webeyetrack/public/WEBGAZER*
+eye_tracking_demo.before.html
+eye_tracking_demo.pre-calibration-fix.html
+browser-check.cjs
+verify.cjs
+preview-*.png
+
+# OS files
+.DS_Store
+Thumbs.db

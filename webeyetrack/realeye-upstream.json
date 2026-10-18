@@ -1,0 +1,7 @@
+{
+  "package": "@realeye-io/webcam-eyetracker-light-open",
+  "version": "1.1.0",
+  "integrity": "sha512-B7cMJtwXC2TFDa8/0H3O3Pp0p3Ss5OjNeXByQg32+rqCmgjm7KW/JUuDQ7ilGSO6y3ahF8kR/eZb5r7kGCKn2Q==",
+  "sourceCommit": "5ee44e9e0102b1583a9a2539525a89b2726651a9",
+  "source": "https://github.com/RealEye-io/webcam-eyetracker-light-open/tree/5ee44e9e0102b1583a9a2539525a89b2726651a9"
+}
