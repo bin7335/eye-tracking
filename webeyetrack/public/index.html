@@ -156,7 +156,42 @@
     .hero-mark svg { width:68px; height:68px; display:block; }
     #overlay-kicker { color:var(--cyan); font-size:11px; font-weight:800; letter-spacing:.18em; margin-bottom:10px; text-transform:uppercase; }
     #overlay-title { margin:0; font-size:clamp(26px,2.8vw,38px); letter-spacing:-.05em; line-height:1.25; color:#ffffff; }
-    #overlay-copy { max-width:440px; line-height:1.75; font-size:14px; color:var(--muted); margin:14px 0 22px; white-space:pre-line; }
+    #overlay-copy { max-width:460px; line-height:1.75; font-size:14px; color:var(--muted); margin:12px 0 18px; white-space:pre-line; }
+    .target-guide {
+      display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;
+      width:min(100%,520px); margin:0 0 22px; text-align:left;
+    }
+    .guide-item {
+      display:flex; align-items:center; gap:12px;
+      background:rgba(15,23,42,.82);
+      border:1px solid rgba(56,189,248,.22);
+      border-radius:14px; padding:12px 14px;
+    }
+    .guide-item.target-ok { border-color:rgba(52,211,153,.42); background:rgba(6,78,59,.24); }
+    .guide-item.target-ignore { border-color:rgba(244,63,94,.32); background:rgba(76,5,25,.18); }
+    .guide-orb {
+      width:36px; height:36px; border-radius:50%; flex-shrink:0; position:relative;
+      background:radial-gradient(circle at 35% 35%, #a7f3d0 0%, #10b981 55%, #047857 100%);
+      box-shadow:0 0 16px rgba(16,185,129,.55);
+      border:2px solid rgba(52,211,153,.85);
+    }
+    .guide-orb::after {
+      content:""; position:absolute; inset:0; margin:auto;
+      width:6px; height:6px; border-radius:50%; background:#ffffff;
+    }
+    .guide-decoy {
+      width:36px; height:36px; border-radius:50%; flex-shrink:0; position:relative;
+      background:rgba(244,63,94,.16);
+      border:2px dashed rgba(251,113,133,.65);
+      display:grid; place-items:center;
+    }
+    .guide-decoy::after {
+      content:""; width:12px; height:12px; border-radius:50%;
+      background:rgba(244,63,94,.75);
+      box-shadow:0 0 10px rgba(244,63,94,.5);
+    }
+    .guide-text strong { display:block; font-size:12px; color:#f8fafc; margin-bottom:3px; }
+    .guide-text span { display:block; font-size:11px; color:var(--muted); line-height:1.45; }
     .overlay-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
     #result-stats { display:grid; grid-template-columns:repeat(3,minmax(145px,1fr)); gap:14px; width:min(100%,600px); margin:0 0 24px; }
     #result-stats > div {
@@ -215,7 +250,7 @@
     footer a { color:var(--cyan); }
     @media(max-height:850px) and (min-width:761px) { aside { gap:12px; } .panel { padding:14px; } .steps { gap:10px; } .hint { margin-top:10px; } }
     @media(max-width:1100px) { .app { padding:20px; } main { grid-template-columns:minmax(0,1fr) 320px; gap:16px; } .panel { padding:16px; } #preview { min-height:190px; } }
-    @media(max-width:760px) { .app { padding:14px; } header { flex-wrap:wrap; } main { grid-template-columns:1fr; } aside { grid-template-columns:repeat(2,minmax(0,1fr)); } aside .panel:last-child { grid-column:1/-1; } .hud { padding:16px; } #stage { height:420px; } #overlay { padding:24px; } #result-stats { grid-template-columns:1fr; } .hero-mark { width:76px; height:76px; margin-bottom:16px; } .play-footer { flex-wrap:wrap; } .status { font-size:11px; } }
+    @media(max-width:760px) { .app { padding:14px; } header { flex-wrap:wrap; } main { grid-template-columns:1fr; } aside { grid-template-columns:repeat(2,minmax(0,1fr)); } aside .panel:last-child { grid-column:1/-1; } .hud { padding:16px; } #stage { height:420px; } #overlay { padding:24px; } #result-stats,.target-guide { grid-template-columns:1fr; } .hero-mark { width:76px; height:76px; margin-bottom:16px; } .play-footer { flex-wrap:wrap; } .status { font-size:11px; } }
     @media(prefers-reduced-motion:reduce) { * { transition:none !important; } }
   </style>
 </head>
@@ -248,7 +283,7 @@
       <div class="hud">
         <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">60</span><small>초</small></div></div>
         <div><div class="hud-label">타겟 유지율</div><div class="hud-value"><span id="retention">—</span><small>%</small></div></div>
-        <div class="energy"><div class="energy-line"><span>집중 스코어</span><b id="energy-text">0점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
+        <div class="energy"><div class="energy-line"><span>집중 스코어 (1000점 만점)</span><b id="energy-text">0 / 1000점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
       </div>
       <div id="stage">
         <canvas id="game-canvas" aria-label="바라볼 타겟"></canvas>
@@ -274,8 +309,24 @@
           </div>
           <div id="overlay-kicker">60 SECOND CHALLENGE</div>
           <h2 id="overlay-title">움직이는 구슬을 따라가는 집중력.</h2>
-          <p id="overlay-copy">시선을 유혹하는 방해물들을 이겨내고 에메랄드 구슬만 끝까지 따라가 보세요.
-흔들림 없이 따라갈수록 집중 스코어와 티어가 올라갑니다.</p>
+          <p id="overlay-copy">에메랄드 타겟 구슬만 눈(홍채)으로 끝까지 부드럽게 따라가 보세요.
+흔들림 없이 따라갈수록 1000점 만점 집중 스코어와 롤 티어가 올라갑니다.</p>
+          <div id="target-guide" class="target-guide">
+            <div class="guide-item target-ok">
+              <div class="guide-orb" aria-hidden="true"></div>
+              <div class="guide-text">
+                <strong>따라갈 타겟 · 에메랄드 구슬</strong>
+                <span>가운데 흰 점이 있는 초록 구슬만 시선으로 부드럽게 추적하세요.</span>
+              </div>
+            </div>
+            <div class="guide-item target-ignore">
+              <div class="guide-decoy" aria-hidden="true"></div>
+              <div class="guide-text">
+                <strong>무시할 요소 · 주변 교란 신호</strong>
+                <span>군데군데 조용히 켜졌다 사라지는 붉은 불빛에는 눈을 돌리지 마세요.</span>
+              </div>
+            </div>
+          </div>
           <div id="result-stats" hidden></div>
           <div class="overlay-actions"><button id="primary">CNN 모델 켜고 시작</button><button id="secondary" class="secondary" hidden>다시 보정</button></div>
         </div>

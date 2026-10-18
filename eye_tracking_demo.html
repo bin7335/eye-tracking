@@ -156,7 +156,42 @@
     .hero-mark svg { width:68px; height:68px; display:block; }
     #overlay-kicker { color:var(--cyan); font-size:11px; font-weight:800; letter-spacing:.18em; margin-bottom:10px; text-transform:uppercase; }
     #overlay-title { margin:0; font-size:clamp(26px,2.8vw,38px); letter-spacing:-.05em; line-height:1.25; color:#ffffff; }
-    #overlay-copy { max-width:440px; line-height:1.75; font-size:14px; color:var(--muted); margin:14px 0 22px; white-space:pre-line; }
+    #overlay-copy { max-width:460px; line-height:1.75; font-size:14px; color:var(--muted); margin:12px 0 18px; white-space:pre-line; }
+    .target-guide {
+      display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;
+      width:min(100%,520px); margin:0 0 22px; text-align:left;
+    }
+    .guide-item {
+      display:flex; align-items:center; gap:12px;
+      background:rgba(15,23,42,.82);
+      border:1px solid rgba(56,189,248,.22);
+      border-radius:14px; padding:12px 14px;
+    }
+    .guide-item.target-ok { border-color:rgba(52,211,153,.42); background:rgba(6,78,59,.24); }
+    .guide-item.target-ignore { border-color:rgba(244,63,94,.32); background:rgba(76,5,25,.18); }
+    .guide-orb {
+      width:36px; height:36px; border-radius:50%; flex-shrink:0; position:relative;
+      background:radial-gradient(circle at 35% 35%, #a7f3d0 0%, #10b981 55%, #047857 100%);
+      box-shadow:0 0 16px rgba(16,185,129,.55);
+      border:2px solid rgba(52,211,153,.85);
+    }
+    .guide-orb::after {
+      content:""; position:absolute; inset:0; margin:auto;
+      width:6px; height:6px; border-radius:50%; background:#ffffff;
+    }
+    .guide-decoy {
+      width:36px; height:36px; border-radius:50%; flex-shrink:0; position:relative;
+      background:rgba(244,63,94,.16);
+      border:2px dashed rgba(251,113,133,.65);
+      display:grid; place-items:center;
+    }
+    .guide-decoy::after {
+      content:""; width:12px; height:12px; border-radius:50%;
+      background:rgba(244,63,94,.75);
+      box-shadow:0 0 10px rgba(244,63,94,.5);
+    }
+    .guide-text strong { display:block; font-size:12px; color:#f8fafc; margin-bottom:3px; }
+    .guide-text span { display:block; font-size:11px; color:var(--muted); line-height:1.45; }
     .overlay-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; }
     #result-stats { display:grid; grid-template-columns:repeat(3,minmax(145px,1fr)); gap:14px; width:min(100%,600px); margin:0 0 24px; }
     #result-stats > div {
@@ -215,7 +250,7 @@
     footer a { color:var(--cyan); }
     @media(max-height:850px) and (min-width:761px) { aside { gap:12px; } .panel { padding:14px; } .steps { gap:10px; } .hint { margin-top:10px; } }
     @media(max-width:1100px) { .app { padding:20px; } main { grid-template-columns:minmax(0,1fr) 320px; gap:16px; } .panel { padding:16px; } #preview { min-height:190px; } }
-    @media(max-width:760px) { .app { padding:14px; } header { flex-wrap:wrap; } main { grid-template-columns:1fr; } aside { grid-template-columns:repeat(2,minmax(0,1fr)); } aside .panel:last-child { grid-column:1/-1; } .hud { padding:16px; } #stage { height:420px; } #overlay { padding:24px; } #result-stats { grid-template-columns:1fr; } .hero-mark { width:76px; height:76px; margin-bottom:16px; } .play-footer { flex-wrap:wrap; } .status { font-size:11px; } }
+    @media(max-width:760px) { .app { padding:14px; } header { flex-wrap:wrap; } main { grid-template-columns:1fr; } aside { grid-template-columns:repeat(2,minmax(0,1fr)); } aside .panel:last-child { grid-column:1/-1; } .hud { padding:16px; } #stage { height:420px; } #overlay { padding:24px; } #result-stats,.target-guide { grid-template-columns:1fr; } .hero-mark { width:76px; height:76px; margin-bottom:16px; } .play-footer { flex-wrap:wrap; } .status { font-size:11px; } }
     @media(prefers-reduced-motion:reduce) { * { transition:none !important; } }
   </style>
 </head>
@@ -248,7 +283,7 @@
       <div class="hud">
         <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">60</span><small>초</small></div></div>
         <div><div class="hud-label">타겟 유지율</div><div class="hud-value"><span id="retention">—</span><small>%</small></div></div>
-        <div class="energy"><div class="energy-line"><span>집중 스코어</span><b id="energy-text">0점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
+        <div class="energy"><div class="energy-line"><span>집중 스코어 (1000점 만점)</span><b id="energy-text">0 / 1000점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
       </div>
       <div id="stage">
         <canvas id="game-canvas" aria-label="바라볼 타겟"></canvas>
@@ -274,8 +309,24 @@
           </div>
           <div id="overlay-kicker">60 SECOND CHALLENGE</div>
           <h2 id="overlay-title">움직이는 구슬을 따라가는 집중력.</h2>
-          <p id="overlay-copy">시선을 유혹하는 방해물들을 이겨내고 에메랄드 구슬만 끝까지 따라가 보세요.
-흔들림 없이 따라갈수록 집중 스코어와 티어가 올라갑니다.</p>
+          <p id="overlay-copy">에메랄드 타겟 구슬만 눈(홍채)으로 끝까지 부드럽게 따라가 보세요.
+흔들림 없이 따라갈수록 1000점 만점 집중 스코어와 롤 티어가 올라갑니다.</p>
+          <div id="target-guide" class="target-guide">
+            <div class="guide-item target-ok">
+              <div class="guide-orb" aria-hidden="true"></div>
+              <div class="guide-text">
+                <strong>따라갈 타겟 · 에메랄드 구슬</strong>
+                <span>가운데 흰 점이 있는 초록 구슬만 시선으로 부드럽게 추적하세요.</span>
+              </div>
+            </div>
+            <div class="guide-item target-ignore">
+              <div class="guide-decoy" aria-hidden="true"></div>
+              <div class="guide-text">
+                <strong>무시할 요소 · 주변 교란 신호</strong>
+                <span>군데군데 조용히 켜졌다 사라지는 붉은 불빛에는 눈을 돌리지 마세요.</span>
+              </div>
+            </div>
+          </div>
           <div id="result-stats" hidden></div>
           <div class="overlay-actions"><button id="primary">카메라 켜고 시작</button><button id="secondary" class="secondary" hidden>다시 보정</button></div>
         </div>
@@ -309,7 +360,7 @@
   let sequenceIndex=0, sequenceClock=0, collectionTime=0, pointSamples=[], pointPredictions=[], groups=[], errors=[], pointErrors=[];
   let validationGroups=[], validationRecords=[], correctionAttempt=0, validationReport=null;
   let model=null, quality=null, gaze=null, rawGaze=null, previousGazeAt=0, gazeValidAt=0, stableTime=0, openEar=.25, radius=.16;
-  let target={x:.5,y:.5}, prevTarget={x:.5,y:.5}, focusScore=0, smoothnessSum=0, smoothnessTime=0, streakTime=0, elapsed=0, validTime=0, onTargetTime=0, awayTime=0, recoveryTime=0, paused=true, lastGoodAt=0;
+  let target={x:.5,y:.5}, prevTarget={x:.5,y:.5}, focusScore=0, smoothnessSum=0, smoothnessTime=0, streakTime=0, breakCount=0, wasBroken=false, lureSlot=-1, activeLures=[], elapsed=0, validTime=0, onTargetTime=0, awayTime=0, recoveryTime=0, paused=true, lastGoodAt=0;
   let screenAction='start', pauseStartedAt=0, inferenceTimes=[];
   function status(text,tone='') { ui.status.textContent=text; ui.status.dataset.tone=tone; }
   function positionNotice() {
@@ -331,17 +382,17 @@
     ui.mode.disabled=!['IDLE','RESULT','READY','FAILED'].includes(next);
   }
   const DEFAULT_HERO_SVG=`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="heroEyeGrad" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34d399"/><stop offset="50%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#6366f1"/></linearGradient></defs><polygon points="32,4 58,18 58,46 32,60 6,46 6,18" stroke="url(#heroEyeGrad)" stroke-width="2.5" fill="rgba(6,182,212,0.10)"/><path d="M12 32C18 21.5 24.8 17 32 17C39.2 17 46 21.5 52 32C46 42.5 39.2 47 32 47C24.8 47 18 42.5 12 32Z" stroke="url(#heroEyeGrad)" stroke-width="3" fill="rgba(16,185,129,0.14)"/><circle cx="32" cy="32" r="9" fill="url(#heroEyeGrad)"/><circle cx="32" cy="32" r="3.8" fill="#050811"/><circle cx="35" cy="29" r="2" fill="#ffffff"/></svg>`;
-  function getTierData(topPct) {
+  function getTierData(finalScore) {
     const tiers=[
-      {max:3,key:'CHALLENGER',name:'챌린저',c1:'#38bdf8',c2:'#fbbf24',c3:'#f472b6',glow:'rgba(56,189,248,0.52)',crown:true,wings:3},
-      {max:10,key:'MASTER',name:'마스터',c1:'#c084fc',c2:'#e879f9',c3:'#fbbf24',glow:'rgba(192,132,252,0.48)',crown:true,wings:2},
-      {max:22,key:'DIAMOND',name:'다이아',c1:'#38bdf8',c2:'#818cf8',c3:'#e0f2fe',glow:'rgba(56,189,248,0.42)',crown:true,wings:2},
-      {max:38,key:'PLATINUM',name:'플래티넘',c1:'#2dd4bf',c2:'#10b981',c3:'#99f6e4',glow:'rgba(45,212,191,0.38)',crown:false,wings:2},
-      {max:58,key:'GOLD',name:'골드',c1:'#fbbf24',c2:'#d97706',c3:'#fef08a',glow:'rgba(251,191,36,0.38)',crown:false,wings:1},
-      {max:80,key:'BRONZE',name:'브론즈',c1:'#d97706',c2:'#92400e',c3:'#fdba74',glow:'rgba(217,119,6,0.32)',crown:false,wings:1},
-      {max:100,key:'IRON',name:'아이언',c1:'#94a3b8',c2:'#475569',c3:'#cbd5e1',glow:'rgba(148,163,184,0.28)',crown:false,wings:0}
+      {min:940,key:'CHALLENGER',name:'챌린저',c1:'#38bdf8',c2:'#fbbf24',c3:'#f472b6',glow:'rgba(56,189,248,0.52)',crown:true,wings:3},
+      {min:870,key:'MASTER',name:'마스터',c1:'#c084fc',c2:'#e879f9',c3:'#fbbf24',glow:'rgba(192,132,252,0.48)',crown:true,wings:2},
+      {min:780,key:'DIAMOND',name:'다이아',c1:'#38bdf8',c2:'#818cf8',c3:'#e0f2fe',glow:'rgba(56,189,248,0.42)',crown:true,wings:2},
+      {min:670,key:'PLATINUM',name:'플래티넘',c1:'#2dd4bf',c2:'#10b981',c3:'#99f6e4',glow:'rgba(45,212,191,0.38)',crown:false,wings:2},
+      {min:540,key:'GOLD',name:'골드',c1:'#fbbf24',c2:'#d97706',c3:'#fef08a',glow:'rgba(251,191,36,0.38)',crown:false,wings:1},
+      {min:380,key:'BRONZE',name:'브론즈',c1:'#d97706',c2:'#92400e',c3:'#fdba74',glow:'rgba(217,119,6,0.32)',crown:false,wings:1},
+      {min:0,key:'IRON',name:'아이언',c1:'#94a3b8',c2:'#475569',c3:'#cbd5e1',glow:'rgba(148,163,184,0.28)',crown:false,wings:0}
     ];
-    const t=tiers.find(x=>topPct<=x.max)||tiers[tiers.length-1];
+    const t=tiers.find(x=>finalScore>=x.min)||tiers[tiers.length-1];
     const gid='tg_'+t.key;
     const wingPaths=t.wings>=2?`<path d="M12 28L3 18L8 33L4 42L15 39Z" fill="url(#${gid})" opacity="0.85"/><path d="M52 28L61 18L56 33L60 42L49 39Z" fill="url(#${gid})" opacity="0.85"/>`:t.wings===1?`<path d="M13 30L6 23L10 36L16 38Z" fill="url(#${gid})" opacity="0.75"/><path d="M51 30L58 23L54 36L48 38Z" fill="url(#${gid})" opacity="0.75"/>`:'';
     const crownPath=t.crown?`<polygon points="20,16 25,7 32,13 39,7 44,16 32,19" fill="${t.c3}" stroke="${t.c1}" stroke-width="1.4"/>`:'';
@@ -349,7 +400,7 @@
     const svg=`<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${gid}" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="${t.c1}"/><stop offset="55%" stop-color="${t.c2}"/><stop offset="100%" stop-color="${t.c3}"/></linearGradient></defs>${rays}${wingPaths}${crownPath}<polygon points="32,11 50,22 46,46 32,57 18,46 14,22" fill="rgba(10,16,32,0.88)" stroke="url(#${gid})" stroke-width="2.8"/><polygon points="32,17 44,25 41,43 32,51 23,43 20,25" fill="url(#${gid})" opacity="0.28"/><polygon points="32,21 40,32 32,45 24,32" fill="url(#${gid})" stroke="${t.c3}" stroke-width="1.5"/><circle cx="32" cy="32" r="3.6" fill="#ffffff"/></svg>`;
     return {...t,svg};
   }
-  function overlay(title,copy,action,label,extra=false,kicker='시선의 힘',tierObj=null) {
+  function overlay(title,copy,action,label,extra=false,kicker='NEURAL EYE FOCUS CHALLENGE',tierObj=null) {
     ui.overlay.hidden=false; ui['overlay-title'].textContent=title; ui['overlay-copy'].textContent=copy; ui['overlay-kicker'].textContent=tierObj?`${tierObj.key} TIER · 상위 ${tierObj.topPct}%`:kicker;
     const hm=$('hero-mark');
     if(hm) {
@@ -357,13 +408,15 @@
       hm.style.boxShadow=tierObj?`0 14px 38px rgba(0,0,0,.6), 0 0 34px ${tierObj.glow}`:'0 14px 38px rgba(0,0,0,.55), 0 0 28px rgba(6,182,212,.24)';
       hm.style.borderColor=tierObj?tierObj.c1:'rgba(56,189,248,.35)';
     }
+    const tg=$('target-guide');
+    if(tg) tg.hidden=(action==='replay');
     screenAction=action; ui.primary.textContent=label; ui.primary.disabled=false; ui.secondary.hidden=!extra; ui['result-stats'].hidden=action!=='replay';
   }
   function hideOverlay() { ui.overlay.hidden=true; ui['result-stats'].hidden=true; }
   function resetGaze() { gaze=null; rawGaze=null; previousGazeAt=0; gazeValidAt=0; prevEye=null; eyeWindow=[]; eyeStep=0; eyeSpread=0; eyeSpeed=0; pointAnchor=null; eyeAnchor=null; }
   function beginAlignment() {
     if (!ready) return;
-    model=null; quality=null; poseBase=null; centerEyeAnchor=null; alignSamples=[]; stableTime=0; groups=[]; correctionAttempt=0; validationReport=null; focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; elapsed=0; validTime=0; onTargetTime=0; resetGaze(); hideOverlay(); setState('ALIGN');
+    model=null; quality=null; poseBase=null; centerEyeAnchor=null; alignSamples=[]; stableTime=0; groups=[]; correctionAttempt=0; validationReport=null; focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; breakCount=0; wasBroken=false; lureSlot=-1; activeLures=[]; elapsed=0; validTime=0; onTargetTime=0; resetGaze(); hideOverlay(); setState('ALIGN');
     ui.quality.textContent='시선 보정 전'; ui['stage-title'].textContent='얼굴을 편안하게 맞춰 주세요'; ui['stage-copy'].textContent='오른쪽 큰 카메라 화면의 가이드에 얼굴을 맞추고 잠시 기다려 주세요.';
     ui['preview-guide'].hidden=false; status('얼굴 위치 확인 중');
   }
@@ -388,22 +441,35 @@
   }
   function computeMetrics() {
     const retention=validTime>0?clamp(onTargetTime/validTime*100,0,100):0;
-    const avgSmooth=smoothnessTime>0?clamp(smoothnessSum/smoothnessTime*100,0,100):85;
+    const avgSmooth=smoothnessTime>0?clamp(smoothnessSum/smoothnessTime*100,0,100):75;
     const progressRatio=clamp(elapsed/CFG.duration,0,1);
-    const liveQuality=clamp(retention*.58+avgSmooth*.32+clamp(streakTime/10,0,1)*10,0,100);
-    const currentScore=Math.round(clamp(focusScore,0,100));
-    const finalScore=Math.round(clamp(currentScore*.65+(liveQuality*progressRatio)*.35,0,100));
-    let age=30;
-    if(finalScore>=95) age=18;
-    else if(finalScore>=88) age=Math.round(19+(95-finalScore)*.7);
-    else if(finalScore>=78) age=Math.round(24+(88-finalScore)*.7);
-    else if(finalScore>=65) age=Math.round(31+(78-finalScore)*.75);
-    else if(finalScore>=50) age=Math.round(41+(65-finalScore)*.75);
-    else age=Math.round(clamp(52+(50-finalScore)*.35,52,68));
-    const percentile=clamp(Math.round(1+Math.pow(finalScore/100,1.25)*98),1,99);
-    const topPct=clamp(100-percentile,1,99);
-    const tierInfo=getTierData(topPct);
-    return {retention,avgSmooth,currentScore,finalScore,age,percentile,topPct,tier:tierInfo.name,tierKey:tierInfo.key,tierInfo:{...tierInfo,topPct}};
+    const strictRetention=Math.pow(retention/100,1.65)*100;
+    const strictSmooth=Math.pow(avgSmooth/100,1.45)*100;
+    const breakPenalty=Math.min(280,breakCount*28);
+    const completionFactor=.25+.75*Math.pow(progressRatio,1.15);
+    const rawAnalytic=(strictRetention*6.2+strictSmooth*2.8+clamp(streakTime/18,0,1)*100)*completionFactor;
+    const currentScore=Math.round(clamp(focusScore,0,1000));
+    const blended=currentScore*.55+rawAnalytic*.45-breakPenalty;
+    const capByRetention=retention<50?Math.min(360,retention*6.5):retention<70?Math.min(530,retention*7.4):retention<82?Math.min(690,retention*8.2):1000;
+    const finalScore=Math.round(clamp(Math.min(blended,capByRetention),0,1000));
+    let age=38;
+    if(finalScore>=940) age=18;
+    else if(finalScore>=870) age=Math.round(19+(940-finalScore)*.055);
+    else if(finalScore>=780) age=Math.round(23+(870-finalScore)*.065);
+    else if(finalScore>=670) age=Math.round(29+(780-finalScore)*.075);
+    else if(finalScore>=540) age=Math.round(37+(670-finalScore)*.085);
+    else if(finalScore>=380) age=Math.round(48+(540-finalScore)*.075);
+    else age=Math.round(clamp(60+(380-finalScore)*.035,60,74));
+    let topPct=99;
+    if(finalScore>=940) topPct=clamp(Math.round(1+(1000-finalScore)/30),1,3);
+    else if(finalScore>=870) topPct=clamp(Math.round(4+(940-finalScore)/11),4,10);
+    else if(finalScore>=780) topPct=clamp(Math.round(11+(870-finalScore)/8),11,22);
+    else if(finalScore>=670) topPct=clamp(Math.round(23+(780-finalScore)/7),23,38);
+    else if(finalScore>=540) topPct=clamp(Math.round(39+(670-finalScore)/6.5),39,58);
+    else if(finalScore>=380) topPct=clamp(Math.round(59+(540-finalScore)/7.5),59,80);
+    else topPct=clamp(Math.round(81+(380-finalScore)/21),81,99);
+    const tierInfo=getTierData(finalScore);
+    return {retention,avgSmooth,currentScore,finalScore,age,topPct,tier:tierInfo.name,tierKey:tierInfo.key,tierInfo:{...tierInfo,topPct}};
   }
   function vector(a,b) { return {x:(a.x-b.x)*frameSize.w,y:(a.y-b.y)*frameSize.h}; }
   function eyeFeature(l,outer,inner,iris,top,bottom) {
@@ -545,10 +611,10 @@
       model=fitModel([...groups,...validationGroups]);
     }
     quality={median:med,p90,points:[...pointErrors],stabilityMode:strictFailed||model?.stabilityOnly};
-    radius=clamp((Number.isFinite(p90)?p90:.15)+.07,.16,.25);
+    radius=clamp((Number.isFinite(p90)?p90:.15)+.05,.15,.22);
     setState('READY'); status('준비 완료','good');
-    ui.quality.textContent=quality.stabilityMode?'홍채 부드러운 추적 모드 적용':'보정 확인 완료 · '+(med<.08?'정밀 홍채 추적':'안정 홍채 추적');
-    overlay('준비됐어요.','천천히 움직이는 초록 구슬을 눈(홍채)으로 부드럽게 따라가 보세요.\n흔들림 없이 따라갈수록 집중 스코어와 분위 레벨이 올라갑니다.','play','60초 챌린지 시작',true,'READY TO FOCUS');
+    ui.quality.textContent=quality.stabilityMode?'홍채 정밀 추적 모드 적용':'보정 확인 완료 · '+(med<.08?'정밀 홍채 추적':'안정 홍채 추적');
+    overlay('준비됐어요.','아래 안내된 [초록색 에메랄드 타겟 구슬] 하나만 끝까지 눈으로 따라가세요.\n주변에 조용히 나타나는 미끼 표식에 한눈을 팔면 즉시 감점됩니다 (1000점 만점 엄격 평가).','play','60초 챌린지 시작',true,'READY TO FOCUS');
   }
   function sequenceTick(dt,now,t) {
     const points=state==='CALIBRATING'?calibrationPoints:validationPoints;
@@ -596,11 +662,11 @@
     if(!model) model=defaultStabilityModel();
     if(!quality) quality={median:.08,p90:.14,points:[],stabilityMode:true};
     hideOverlay(); resetGaze(); setState('COUNTDOWN'); sequenceClock=0; target={x:.5,y:.5}; prevTarget={x:.5,y:.5};
-    focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; elapsed=0; validTime=0; onTargetTime=0; gazeBias={x:0,y:0};
-    ui['stage-title'].textContent='가운데 구슬을 바라보세요'; ui['stage-copy'].textContent='구슬 내부가 모두 채워지면 움직이는 구슬 추적이 시작됩니다.'; status('시작 준비','good');
+    focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; breakCount=0; wasBroken=false; lureSlot=-1; activeLures=[]; elapsed=0; validTime=0; onTargetTime=0; gazeBias={x:0,y:0};
+    ui['stage-title'].textContent='화면 중앙의 초록색 타겟 구슬을 응시하세요'; ui['stage-copy'].textContent='구슬이 100% 채워지면 궤도를 따라 부드럽게 이동합니다. 이 초록 구슬만 끝까지 따라가세요.'; status('시작 준비','good');
   }
   function startGame(now) {
-    setState('PLAYING'); focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; elapsed=0; validTime=0; onTargetTime=0; awayTime=0; recoveryTime=0; paused=true; lastGoodAt=0; pauseStartedAt=now;
+    setState('PLAYING'); focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; breakCount=0; wasBroken=false; lureSlot=-1; activeLures=[]; elapsed=0; validTime=0; onTargetTime=0; awayTime=0; recoveryTime=0; paused=true; lastGoodAt=0; pauseStartedAt=now;
     eyeAnchor=prevEye?{...prevEye}:null;
     gazeBias=gaze?{x:gaze.x-target.x,y:gaze.y-target.y}:{x:0,y:0};
   }
@@ -608,11 +674,12 @@
     setState('RESULT'); notice();
     const m=computeMetrics();
     const title=aborted?'잠시 쉬어도 괜찮아요':`${m.tier} 티어 달성! (상위 ${m.topPct}%)`;
-    const copy=aborted?'인식이 오래 끊겨 체험을 멈췄어요.\n위치를 맞추고 다시 도전해 보세요.':`타겟 유지율 ${m.retention.toFixed(1)}% · 홍채 흔들림 안정도 ${Math.round(m.avgSmooth)}%\n방해 요소를 이겨내고 달성한 티어는 [${m.tier} · 상위 ${m.topPct}%] 입니다.`;
+    const copy=aborted?'인식이 오래 끊겨 체험을 멈췄어요.\n위치를 맞추고 다시 도전해 보세요.':`최종 ${m.finalScore} / 1000점 · 정밀 유지율 ${m.retention.toFixed(1)}% · 홍채 안정도 ${Math.round(m.avgSmooth)}% (시선 이탈 ${breakCount}회)\n엄격 판정 결과 달성한 티어는 [${m.tier} · 상위 ${m.topPct}%] 입니다.`;
     ui['result-stats'].replaceChildren();
+    const ageComment=m.finalScore>=850?'프로게이머급 초고밀도 동체시력':m.finalScore>=680?'20대 수준의 정교한 시선 제어력':m.finalScore>=500?'평균 수준의 시선 유지력':'시선 이탈 및 흔들림 감점 반영';
     const cards=[
-      {value:m.finalScore+'점',label:'최종 집중력 스코어',sub:`타겟 유지율 ${m.retention.toFixed(1)}%`},
-      {value:m.age+'세',label:'추정 시선 신체 나이',sub:m.finalScore>=85?'20대 초반급 시선 제어':'안정적인 홍채 추적 반응'},
+      {value:`${m.finalScore} / 1000점`,label:'최종 집중력 스코어 (엄격 판정)',sub:`정밀 유지율 ${m.retention.toFixed(1)}% · 이탈 ${breakCount}회`},
+      {value:m.age+'세',label:'추정 시선 신체 나이',sub:ageComment},
       {value:m.tier,label:`상위 ${m.topPct}%`,sub:`시선 집중 티어 (${m.tierKey})`,svg:m.tierInfo.svg,color:m.tierInfo.c1}
     ];
     for(const c of cards) {
@@ -650,106 +717,105 @@
     target=targetPositionAt(elapsed,ui.mode.value);
     const targetVx=(target.x-prevTarget.x)/Math.max(dt,.016), targetVy=(target.y-prevTarget.y)/Math.max(dt,.016);
     const targetMoving=Math.hypot(targetVx,targetVy)>.01;
-    if(eyeSpeed<.20) {
-      gazeBias={x:gazeBias.x*.94+(gaze.x-target.x)*.06, y:gazeBias.y*.94+(gaze.y-target.y)*.06};
+    if(eyeSpeed<.15) {
+      gazeBias={x:gazeBias.x*.96+(gaze.x-target.x)*.04, y:gazeBias.y*.96+(gaze.y-target.y)*.04};
     }
-    const adjGaze={x:gaze.x-gazeBias.x*.65, y:gaze.y-gazeBias.y*.65};
+    const adjGaze={x:gaze.x-gazeBias.x*.48, y:gaze.y-gazeBias.y*.48};
     const dist=hypot(adjGaze,target);
     if(!eyeAnchor && prevEye) eyeAnchor={...prevEye};
-    if(targetMoving && prevEye && eyeSpeed<.22) {
+    if(targetMoving && prevEye && eyeSpeed<.18) {
       eyeAnchor={x:eyeAnchor.x*.88+prevEye.x*.12, y:eyeAnchor.y*.88+prevEye.y*.12, nx:eyeAnchor.nx*.88+prevEye.nx*.12, ny:eyeAnchor.ny*.88+prevEye.ny*.12};
-    } else if(!targetMoving && prevEye && eyeSpeed<.18) {
-      eyeAnchor={x:eyeAnchor.x*.96+prevEye.x*.04, y:eyeAnchor.y*.96+prevEye.y*.04, nx:eyeAnchor.nx*.96+prevEye.nx*.04, ny:eyeAnchor.ny*.96+prevEye.ny*.04};
+    } else if(!targetMoving && prevEye && eyeSpeed<.15) {
+      eyeAnchor={x:eyeAnchor.x*.95+prevEye.x*.05, y:eyeAnchor.y*.95+prevEye.y*.05, nx:eyeAnchor.nx*.95+prevEye.nx*.05, ny:eyeAnchor.ny*.95+prevEye.ny*.05};
     }
     const eyeDrift=eyeAnchor&&prevEye?Math.hypot(prevEye.nx-eyeAnchor.nx,prevEye.ny-eyeAnchor.ny):0;
-    const irisSmooth=clamp(1-Math.max(0,eyeSpeed-.05)/.22,0,1);
+    const irisSmooth=clamp(1-Math.max(0,eyeSpeed-.038)/.16,0,1);
     smoothnessSum+=irisSmooth*dt; smoothnessTime+=dt;
-    const eyeFollowing=eyeSpeed<.22 && eyeSpread<.23 && eyeDrift<.30;
-    const coordInside=dist<=radius*1.15;
-    const inside=(coordInside && eyeSpeed<.24 && eyeSpread<.24) || (eyeFollowing && (quality?.stabilityMode || dist<=radius*1.45));
+    const eyeFollowing=eyeSpeed<.17 && eyeSpread<.18 && eyeDrift<.22;
+    const coordInside=dist<=radius*.92;
+    const inside=(coordInside && eyeSpeed<.19 && eyeSpread<.19) || (eyeFollowing && dist<=radius*1.12);
     if(inside) {
-      const retentionWeight=coordInside&&eyeSpeed<.16?1:eyeSpeed<.22?.92:.82;
-      onTargetTime+=dt*retentionWeight;
+      wasBroken=false;
+      const centerWeight=dist<=radius*.55&&eyeSpeed<.11?1:dist<=radius*.85&&eyeSpeed<.16?.84:.65;
+      onTargetTime+=dt*centerWeight;
       awayTime=0;
       streakTime+=dt;
-      const proxScore=clamp(1-dist/(radius*1.5),.45,1);
-      const comboBonus=clamp(streakTime/10,0,1)*.18;
-      const gainRate=(100/CFG.duration)*(proxScore*.42+irisSmooth*.40+.18+comboBonus);
-      focusScore=clamp(focusScore+gainRate*dt,0,100);
+      const proxScore=clamp(1-dist/(radius*1.15),.15,1);
+      const comboBonus=clamp(streakTime/14,0,1)*.14;
+      const gainRate=(1000/CFG.duration)*(proxScore*.48+irisSmooth*.42+comboBonus);
+      focusScore=clamp(focusScore+gainRate*dt,0,1000);
       notice();
     } else {
       awayTime+=dt;
-      streakTime=Math.max(0,streakTime-dt*2.4);
-      if(awayTime>CFG.lossGrace) {
-        focusScore=Math.max(0,focusScore-1.8*dt);
-        notice(eyeSpeed>=.22||eyeSpread>=.23?'눈동자 흔들림 · 방해물을 무시하고 구슬을 따라가세요':'에메랄드 구슬을 바라봐 주세요','warn');
+      streakTime=Math.max(0,streakTime-dt*3.5);
+      if(awayTime>.35 && !wasBroken) {
+        breakCount++;
+        wasBroken=true;
+        focusScore=Math.max(0,focusScore-22);
+      }
+      if(awayTime>.30) {
+        focusScore=Math.max(0,focusScore-34*dt);
+        notice(eyeSpeed>=.18||eyeSpread>=.18?'눈동자 흔들림 감지 (-감점) · 초록 타겟만 부드럽게 따라가세요':'타겟 이탈 감지 (-감점) · 에메랄드 구슬에 시선을 고정하세요','warn');
       }
     }
     positionNotice();
-    status(inside?'홍채 추적 중':'시선 흔들림 감지',inside?'good':'warn');
+    status(inside?'홍채 정밀 추적 중':'시선 흔들림 · 감점 중',inside?'good':'warn');
     if(elapsed>=CFG.duration) endGame();
   }
-  function repelFromTarget(nx,ny) {
-    const dx=nx-target.x, dy=ny-target.y, d=Math.hypot(dx,dy);
-    if(d<.21) {
-      const push=(.21-d), ang=d>1e-3?Math.atan2(dy,dx):.8;
-      return {x:clamp(nx+Math.cos(ang)*push,.10,.90), y:clamp(ny+Math.sin(ang)*push,.14,.86)};
-    }
-    return {x:clamp(nx,.10,.90), y:clamp(ny,.14,.86)};
-  }
+  const LURE_CANDIDATES=[
+    {x:.15,y:.20},{x:.85,y:.20},{x:.14,y:.50},{x:.86,y:.50},
+    {x:.15,y:.80},{x:.85,y:.80},{x:.50,y:.15},{x:.50,y:.85}
+  ];
+  const LURE_STYLES=[
+    {type:'orb',color:'#f43f5e',glow:'rgba(244,63,94,0.18)',label:'DECOY'},
+    {type:'hex',color:'#a855f7',glow:'rgba(168,85,247,0.16)',label:'IGNORE'},
+    {type:'ring',color:'#f59e0b',glow:'rgba(245,158,11,0.16)',label:'FAKE'}
+  ];
   function drawDistractors(now,w,h) {
-    const t=elapsed+now*.0004;
-    ctx.save();
-    {
-      const pos=repelFromTarget(.5-.31*Math.cos(t*.92+1.1),.5+.24*Math.sin(t*1.25+.7));
-      const dx=pos.x*w, dy=pos.y*h, pulse=1+Math.sin(now/180)*.22;
-      ctx.beginPath(); ctx.arc(dx,dy,22*pulse,0,2*Math.PI); ctx.fillStyle='rgba(244,63,94,0.14)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(dx,dy,13,0,2*Math.PI); ctx.fillStyle='#f43f5e'; ctx.fill();
-      ctx.beginPath(); ctx.arc(dx,dy,18+((now/18)%18),0,2*Math.PI); ctx.strokeStyle='rgba(251,113,133,0.42)'; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.font='700 10px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.fillStyle='#fda4af';
-      ctx.fillText('FAKE',dx,dy-20);
-    }
-    {
-      const pos=repelFromTarget(.5+.33*Math.sin(t*.78+2.4),.5-.25*Math.cos(t*1.05+1.9));
-      const dx=pos.x*w, dy=pos.y*h, ang=now/420;
-      ctx.save(); ctx.translate(dx,dy); ctx.rotate(ang);
-      ctx.beginPath();
-      for(let i=0;i<6;i++) { const a=i*Math.PI/3, px=Math.cos(a)*16, py=Math.sin(a)*16; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
-      ctx.closePath(); ctx.strokeStyle='rgba(168,85,247,0.72)'; ctx.lineWidth=2; ctx.stroke();
-      ctx.fillStyle='rgba(168,85,247,0.15)'; ctx.fill();
-      ctx.restore();
-    }
-    {
-      const pos=repelFromTarget(.22+.12*Math.sin(t*1.4),.26+.50*(.5+.5*Math.cos(t*.85)));
-      const dx=pos.x*w, dy=pos.y*h, flash=.55+.45*Math.sin(now/140);
-      ctx.save(); ctx.translate(dx,dy); ctx.rotate(-now/500);
-      ctx.beginPath();
-      for(let i=0;i<8;i++) { const r=i%2===0?16*flash:5, a=i*Math.PI/4; if(i===0) ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r); else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); }
-      ctx.closePath(); ctx.fillStyle=`rgba(251,191,36,${(0.65*flash).toFixed(2)})`; ctx.fill();
-      ctx.restore();
-    }
-    {
-      const pos=repelFromTarget(.78-.14*Math.cos(t*1.55),.74-.48*(.5+.5*Math.sin(t*1.1)));
-      const dx=pos.x*w, dy=pos.y*h;
-      for(let k=4;k>=0;k--) {
-        const tail=repelFromTarget(.78-.14*Math.cos((t-k*.045)*1.55),.74-.48*(.5+.5*Math.sin((t-k*.045)*1.1)));
-        ctx.beginPath(); ctx.arc(tail.x*w,tail.y*h,Math.max(2,8-k*1.4),0,2*Math.PI);
-        ctx.fillStyle=`rgba(56,189,248,${(0.48-k*0.09).toFixed(2)})`; ctx.fill();
+    if(elapsed<2.5) return;
+    const windowDur=4.4;
+    const slot=Math.floor((elapsed-2.5)/windowDur);
+    const wPhase=((elapsed-2.5)%windowDur)/windowDur;
+    if(slot!==lureSlot) {
+      lureSlot=slot;
+      const midTarget=targetPositionAt(Math.min(CFG.duration,elapsed+windowDur*.5),ui.mode.value);
+      const farSpots=LURE_CANDIDATES.filter(c=>
+        Math.hypot(c.x-target.x,c.y-target.y)>.28 &&
+        Math.hypot(c.x-midTarget.x,c.y-midTarget.y)>.26
+      );
+      const pool=farSpots.length>=2?farSpots:LURE_CANDIDATES;
+      const count=elapsed>22?2:1;
+      activeLures=[];
+      for(let i=0;i<count;i++) {
+        const spot=pool[(slot*3+i*5)%pool.length];
+        const style=LURE_STYLES[(slot+i)%LURE_STYLES.length];
+        activeLures.push({x:spot.x,y:spot.y,style});
       }
-      ctx.beginPath(); ctx.arc(dx,dy,6,0,2*Math.PI); ctx.fillStyle='#e0f2fe'; ctx.fill();
     }
-    if(Math.sin(now/650)>-.2) {
-      const idx=Math.floor(now/2400)%4;
-      const anchors=[[.18,.22],[.82,.22],[.18,.78],[.82,.78]][idx];
-      const pos=repelFromTarget(anchors[0]+Math.sin(now/300)*.02,anchors[1]+Math.cos(now/300)*.02);
-      const dx=pos.x*w, dy=pos.y*h;
-      const labels=['⚡ BONUS?','👁️ LOOK!','✨ +50 PT?','🔥 CATCH!'];
-      ctx.fillStyle='rgba(244,63,94,0.18)';
-      ctx.strokeStyle='rgba(244,63,94,0.55)';
-      ctx.lineWidth=1.4;
-      ctx.beginPath(); ctx.roundRect(dx-38,dy-13,76,26,999); ctx.fill(); ctx.stroke();
-      ctx.font='700 11px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillStyle='#fda4af'; ctx.fillText(labels[idx],dx,dy);
+    const alpha=Math.pow(Math.sin(wPhase*Math.PI),.85)*.68;
+    if(alpha<=.03) return;
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    const pulse=1+Math.sin(now/360)*.10;
+    for(const lure of activeLures) {
+      const dx=lure.x*w, dy=lure.y*h, {style}=lure;
+      ctx.beginPath(); ctx.arc(dx,dy,20*pulse,0,2*Math.PI); ctx.fillStyle=style.glow; ctx.fill();
+      if(style.type==='orb') {
+        ctx.beginPath(); ctx.arc(dx,dy,9,0,2*Math.PI); ctx.fillStyle=style.color; ctx.fill();
+        ctx.beginPath(); ctx.arc(dx,dy,15*pulse,0,2*Math.PI); ctx.strokeStyle=style.color; ctx.lineWidth=1.3; ctx.stroke();
+      } else if(style.type==='hex') {
+        ctx.save(); ctx.translate(dx,dy); ctx.rotate(now/1800);
+        ctx.beginPath();
+        for(let i=0;i<6;i++) { const a=i*Math.PI/3, px=Math.cos(a)*12, py=Math.sin(a)*12; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+        ctx.closePath(); ctx.strokeStyle=style.color; ctx.lineWidth=1.6; ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.beginPath(); ctx.arc(dx,dy,11,0,2*Math.PI); ctx.strokeStyle=style.color; ctx.lineWidth=2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(dx,dy,3.5,0,2*Math.PI); ctx.fillStyle=style.color; ctx.fill();
+      }
+      ctx.font='700 9px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='rgba(226,232,240,0.65)';
+      ctx.fillText(style.label,dx,dy-22);
     }
     ctx.restore();
   }
@@ -781,6 +847,20 @@
       ctx.fillText(labelText,x,y+(subText?-1:15));
     }
   }
+  function drawTargetCallout(x,y,text,alpha=1) {
+    ctx.save();
+    ctx.globalAlpha=alpha;
+    ctx.font='700 12px "Pretendard","Segoe UI",sans-serif';
+    const padX=12, boxH=26, tw=ctx.measureText(text).width, boxW=tw+padX*2;
+    const bx=x-boxW/2, by=y-62;
+    ctx.fillStyle='rgba(6,78,59,0.88)';
+    ctx.strokeStyle='rgba(52,211,153,0.8)';
+    ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.roundRect(bx,by,boxW,boxH,999); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#ecfdf5'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text,x,by+boxH/2);
+    ctx.restore();
+  }
   function draw(now) {
     const {w,h}=stageSize; if(!w||!h) return;
     ctx.clearRect(0,0,w,h); if(!ui.overlay.hidden||state==='ALIGN'||state==='IDLE') return;
@@ -795,6 +875,7 @@
       const p=clamp(sequenceClock/3,0,1);
       const countNum=String(Math.max(1,Math.ceil(3-sequenceClock)));
       drawProgressCircle(x,y,32,p,countNum,'count');
+      drawTargetCallout(x,y,'🎯 이 초록 구슬을 끝까지 따라가세요');
       return;
     }
     if(state==='PLAYING') {
@@ -822,6 +903,10 @@
       ctx.lineWidth=2; ctx.strokeStyle=shaking?'rgba(251,191,36,0.75)':'rgba(52,211,153,0.85)'; ctx.stroke();
       ctx.beginPath(); ctx.arc(x-5,y-6,size*.22,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.65)'; ctx.fill();
       ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
+      if(elapsed<4.2) {
+        const calloutAlpha=clamp((4.2-elapsed)/1.2,0,1);
+        drawTargetCallout(x,y,'🎯 추적 타겟',calloutAlpha);
+      }
     }
     if(ui['show-gaze'].checked && gaze && now-gazeValidAt<CFG.staleMs) { ctx.beginPath(); ctx.arc(clamp(gaze.x,0,1)*w,clamp(gaze.y,0,1)*h,7,0,Math.PI*2); ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2; ctx.stroke(); }
   }
@@ -829,12 +914,12 @@
     ui.timer.textContent=String(Math.ceil(Math.max(0,CFG.duration-elapsed)));
     const retentionPct=validTime>.2?clamp(onTargetTime/validTime*100,0,100):null;
     ui.retention.textContent=retentionPct!==null?retentionPct.toFixed(1):'—';
-    const shownScore=Math.round(clamp(focusScore,0,100));
-    ui['energy-text'].textContent=shownScore+'점';
-    ui['energy-fill'].style.width=shownScore+'%';
+    const shownScore=Math.round(clamp(focusScore,0,1000));
+    ui['energy-text'].textContent=`${shownScore} / 1000점`;
+    ui['energy-fill'].style.width=clamp(shownScore/10,0,100)+'%';
     if(Math.floor(now/300)!==Math.floor((now-16)/300)) {
       const report=validationReport, m=computeMetrics();
-      ui.diagnostics.textContent=`상태: ${state}\n인식: ${lastFeature?.valid?'정상':issue||'대기'}\n추론: ${inferenceTimes.length?Math.round(median(inferenceTimes))+'ms':'—'}\n집중 스코어: ${m.currentScore}점 (예상 나이 ${m.age}세 / ${m.tier} · 상위 ${m.topPct}%)\n타겟 유지율: ${m.retention.toFixed(1)}% · 홍채 안정도: ${Math.round(m.avgSmooth)}%\n확인 오차: ${report?Math.round(report.horizontal*stageSize.w)+'px 가로 / '+Math.round(report.vertical*stageSize.h)+'px 세로':'—'}\n눈 흔들림 속도: ${eyeSpeed.toFixed(3)}\n시선: ${rawGaze?rawGaze.x.toFixed(2)+', '+rawGaze.y.toFixed(2):'—'}`;
+      ui.diagnostics.textContent=`상태: ${state}\n인식: ${lastFeature?.valid?'정상':issue||'대기'}\n추론: ${inferenceTimes.length?Math.round(median(inferenceTimes))+'ms':'—'}\n집중 스코어: ${m.currentScore} / 1000점 (예상 나이 ${m.age}세 / ${m.tier} · 상위 ${m.topPct}%)\n타겟 유지율: ${m.retention.toFixed(1)}% · 홍채 안정도: ${Math.round(m.avgSmooth)}% · 이탈: ${breakCount}회\n확인 오차: ${report?Math.round(report.horizontal*stageSize.w)+'px 가로 / '+Math.round(report.vertical*stageSize.h)+'px 세로':'—'}\n눈 흔들림 속도: ${eyeSpeed.toFixed(3)}\n시선: ${rawGaze?rawGaze.x.toFixed(2)+', '+rawGaze.y.toFixed(2):'—'}`;
     }
   }
   function tick(now) {
