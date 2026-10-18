@@ -88,18 +88,11 @@
     return {x:(ox*ux+oy*uy)/len,y:(ox*vx+oy*vy)/len};
   }
   function isEyeRollingOnPoint(){
-    if(!prevEye||eyeWindow.length<4)return {rolling:true,reason:'원 중심에 시선을 맞춰 주세요'};
-    if(eyeStep>.17||eyeSpread>.21)return {rolling:true,reason:'눈이 움직였어요 · 원 중심을 고정해 바라보세요'};
+    if(!prevEye||eyeWindow.length<3)return {rolling:false,reason:''};
+    if(eyeStep>.26||eyeSpread>.32)return {rolling:true,reason:'눈이 움직였어요 · 원 중심을 고정해 바라보세요'};
     if(pointAnchor){
       const anchorDist=Math.hypot(prevEye.nx-pointAnchor.nx,prevEye.ny-pointAnchor.ny);
-      if(anchorDist>.23)return {rolling:true,severe:anchorDist>.34,reason:'눈이 돌아갔어요 · 원 중심을 바라봐 주세요'};
-    }
-    if(state==='CALIBRATING'&&point>0&&centerEyeAnchor){
-      const targetOffset=Math.hypot(target.x-.5,target.y-.5);
-      const eyeFromCenter=Math.hypot(prevEye.nx-centerEyeAnchor.nx,prevEye.ny-centerEyeAnchor.ny);
-      if(targetOffset>.28&&eyeFromCenter<.14){
-        return {rolling:true,reason:'시선을 초록 원 위치로 옮겨 바라봐 주세요'};
-      }
+      if(anchorDist>.35)return {rolling:true,severe:anchorDist>.55,reason:'눈이 돌아갔어요 · 원 중심을 바라봐 주세요'};
     }
     return {rolling:false,reason:''};
   }
@@ -114,11 +107,12 @@
     if(l.length>=474){
       const leftI=computeIrisRatio(l,33,133,468),rightI=computeIrisRatio(l,362,263,473);
       const rawX=(leftI.x+rightI.x)/2,rawY=(leftI.y+rightI.y)/2;
-      const eyeNow={x:rawX,y:rawY,nx:rawX/.018,ny:rawY/.012,cx:center.x,cy:center.y};
-      eyeStep=prevEye?Math.hypot(eyeNow.nx-prevEye.nx,eyeNow.ny-prevEye.ny,(eyeNow.cx-prevEye.cx)*8,(eyeNow.cy-prevEye.cy)*8):0;
-      eyeWindow.push(eyeNow);if(eyeWindow.length>6)eyeWindow.shift();
+      const sx=prevEye?prevEye.x*.45+rawX*.55:rawX,sy=prevEye?prevEye.y*.45+rawY*.55:rawY;
+      const eyeNow={x:sx,y:sy,nx:sx/.12,ny:sy/.10,cx:center.x,cy:center.y};
+      eyeStep=prevEye?Math.hypot(eyeNow.nx-prevEye.nx,eyeNow.ny-prevEye.ny,(eyeNow.cx-prevEye.cx)*3,(eyeNow.cy-prevEye.cy)*3):0;
+      eyeWindow.push(eyeNow);if(eyeWindow.length>5)eyeWindow.shift();
       eyeSpread=eyeWindow.length>=2?Math.max(...eyeWindow.map(e=>Math.hypot(eyeNow.nx-e.nx,eyeNow.ny-e.ny))):0;
-      eyeSpeed=eyeSpeed*.55+Math.max(eyeStep*1.35,eyeSpread)*.45;
+      eyeSpeed=eyeSpeed*.6+Math.max(eyeStep,eyeSpread*.8)*.4;
       prevEye=eyeNow;
     }
     if(!r.normPog?.every(Number.isFinite)){
@@ -131,21 +125,23 @@
     const rect=$('stage').getBoundingClientRect();
     const p={x:((r.normPog[0]+.5)*innerWidth-rect.left)/rect.width,y:((r.normPog[1]+.5)*innerHeight-rect.top)/rect.height};
     if(l.length<474){
-      const eyeNow={x:p.x,y:p.y,nx:(p.x-.5)*2.2,ny:(p.y-.5)*2.2,cx:center.x,cy:center.y};
+      const eyeNow={x:p.x,y:p.y,nx:(p.x-.5)*1.4,ny:(p.y-.5)*1.4,cx:center.x,cy:center.y};
       eyeStep=prevEye?Math.hypot(eyeNow.nx-prevEye.nx,eyeNow.ny-prevEye.ny):0;
-      eyeWindow.push(eyeNow);if(eyeWindow.length>6)eyeWindow.shift();
+      eyeWindow.push(eyeNow);if(eyeWindow.length>5)eyeWindow.shift();
       eyeSpread=eyeWindow.length>=2?Math.max(...eyeWindow.map(e=>Math.hypot(eyeNow.nx-e.nx,eyeNow.ny-e.ny))):0;
-      eyeSpeed=eyeSpeed*.55+Math.max(eyeStep*1.35,eyeSpread)*.45;
+      eyeSpeed=eyeSpeed*.6+Math.max(eyeStep,eyeSpread*.8)*.4;
       prevEye=eyeNow;
     }
-    if(['CALIBRATING','VALIDATING','COUNTDOWN'].includes(state)&&phaseTime>=1){
-      if(!pointAnchor&&eyeWindow.length>=5&&eyeSpread<.19&&eyeStep<.15){
+    if(['CALIBRATING','VALIDATING','COUNTDOWN'].includes(state)&&phaseTime>=.45&&prevEye){
+      if(!pointAnchor&&eyeWindow.length>=3&&eyeSpread<.30){
         pointAnchor={nx:median(eyeWindow.map(e=>e.nx)),ny:median(eyeWindow.map(e=>e.ny))};
+      }else if(pointAnchor&&eyeStep<.22){
+        pointAnchor={nx:pointAnchor.nx*.9+prevEye.nx*.1,ny:pointAnchor.ny*.9+prevEye.ny*.1};
       }
     }
     raw=p;
     gaze=gazeFilter.update(p,r.sampleAt??at);gazeAt=at;
-    if(state==='VALIDATING'&&phaseTime>1&&!isEyeRollingOnPoint().rolling)validation.push({...gaze});
+    if(state==='VALIDATING'&&phaseTime>.45&&!isEyeRollingOnPoint().rolling)validation.push({...gaze});
   }
   async function pump(token){
     while(connected&&token===pumpToken){
@@ -155,7 +151,7 @@
           let frame;
           if(worker.needsFrame!==false){captureCanvas.width=640;captureCanvas.height=Math.round(640*(video.videoHeight||480)/(video.videoWidth||640));captureCtx.drawImage(video,0,0,captureCanvas.width,captureCanvas.height);frame=captureCtx.getImageData(0,0,captureCanvas.width,captureCanvas.height);}
           const rect=$('stage').getBoundingClientRect();
-          const canCapture=state==='CALIBRATING'&&phaseTime>1&&!isEyeRollingOnPoint().rolling;
+          const canCapture=state==='CALIBRATING'&&phaseTime>.45&&!isEyeRollingOnPoint().rolling;
           const r=await request('step',{frame,timestamp:performance.now(),capture:canCapture,point:capturePoint,
             target:[(rect.left+target.x*rect.width)/innerWidth-.5,(rect.top+target.y*rect.height)/innerHeight-.5]},frame?[frame.data.buffer]:[]);
           if(token!==pumpToken)return;
@@ -203,20 +199,16 @@
   function sequence(dt){
     phaseTime+=dt;const tracked=good&&performance.now()-lastAt<500&&!document.hidden;
     if(!tracked){
-      collectTime=Math.max(0,collectTime-dt*1.2);
+      collectTime=Math.max(0,collectTime-dt*.9);
       notice(issue||'눈 인식을 기다리고 있어요','warn');
       positionNotice();
       return;
     }
-    if(phaseTime<1){notice();return;}
+    if(phaseTime<.45){notice();return;}
     const check=isEyeRollingOnPoint();
     if(check.rolling){
-      collectTime=Math.max(0,collectTime-dt*1.8);
-      if(check.severe){
-        pointAnchor=null;
-        validation=[];
-        collectTime=0;
-      }
+      collectTime=Math.max(0,collectTime-dt*1.1);
+      if(check.severe)pointAnchor=null;
       notice(check.reason,'warn');
       positionNotice();
       return;
@@ -225,10 +217,8 @@
     notice();
     positionNotice();
     const list=state==='CALIBRATING'?points:checks;
-    if(collectTime<1.4||(state==='CALIBRATING'?samples<2:validation.length<5))return;
-    if(state==='CALIBRATING'&&point===0&&pointAnchor){
-      centerEyeAnchor={...pointAnchor};
-    }
+    const ready=state==='CALIBRATING'?(collectTime>=1.2&&(samples>=2||collectTime>=1.65)):(collectTime>=1.1&&(validation.length>=3||collectTime>=1.45));
+    if(!ready)return;
     if(state==='VALIDATING')errors.push({point:{...target},predictions:validation.length?[...validation]:[{...target}]});
     point++;
     if(point===list.length){if(state==='CALIBRATING')void train();else finishValidation();return;}
@@ -346,7 +336,7 @@
     if(state==='TRACE')for(const p of checks){ctx.beginPath();ctx.arc(p.x*w,p.y*h,10,0,2*Math.PI);ctx.strokeStyle='#16836d55';ctx.lineWidth=2;ctx.stroke();}
     if(['CALIBRATING','VALIDATING'].includes(state)){
       const list=state==='CALIBRATING'?points:checks;
-      const p=clamp(collectTime/1.4,0,1);
+      const p=clamp(collectTime/(state==='CALIBRATING'?1.2:1.1),0,1);
       drawProgressCircle(x,y,28,p,`${point+1}/${list.length}`);
       return;
     }

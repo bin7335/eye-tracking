@@ -137,7 +137,7 @@
   const hypot = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
   const calibrationPoints = [ [.5,.5],[.15,.18],[.5,.18],[.85,.18],[.85,.5],[.85,.82],[.5,.82],[.15,.82],[.15,.5] ].map(([x,y])=>({x,y}));
   const validationPoints = [[.5,.5],[.25,.5],[.75,.5],[.5,.25],[.5,.75]].map(([x,y])=>({x,y}));
-  const CFG = { duration:60, settle:1.0, collect:1.4, minSamples:24, staleMs:250, blinkGraceMs:450, lossGrace:.55, recovery:.35, sampleTimeout:14, cameraTimeoutMs:30000 };
+  const CFG = { duration:60, settle:.45, collect:1.2, minSamples:10, staleMs:250, blinkGraceMs:450, lossGrace:.55, recovery:.35, sampleTimeout:14, cameraTimeoutMs:30000 };
   let state='IDLE', ready=false, loading=false, cameraFailed=false, faceMesh=null, stream=null, generation=0, pumpStarted=false;
   let lastFrameAt=0, lastLoopAt=0, lastFeature=null, prevEye=null, eyeWindow=[], eyeStep=0, eyeSpread=0, eyeSpeed=0, pointAnchor=null, centerEyeAnchor=null, eyeAnchor=null, gazeBias={x:0,y:0}, invalidSince=0, issue='카메라 대기', poseBase=null, alignSamples=[];
   let frameSize={w:640,h:480}, stageSize={w:0,h:0}, calibrationSize=null;
@@ -287,23 +287,16 @@
     const spreads=centers.map((c,i)=>Math.max(.004,median(samples.map(v=>Math.abs(v[i]-c)))));
     return [...samples].sort((a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-centers[i])/spreads[i],0)-b.reduce((s,v,i)=>s+Math.abs(v-centers[i])/spreads[i],0)).slice(0,Math.max(12,Math.floor(samples.length*.8)));
   }
-  // Normalize raw iris ratio so 1.0 unit ≈ center-to-screen-edge eye excursion.
   function normEye(values,pose) {
-    return {nx:values[0]/.018, ny:values[1]/.012, rawX:values[0], rawY:values[1], yaw:pose.yaw, pitch:pose.pitch};
+    const sx=prevEye?prevEye.rawX*.45+values[0]*.55:values[0], sy=prevEye?prevEye.rawY*.45+values[1]*.55:values[1];
+    return {nx:sx/.12, ny:sy/.10, rawX:sx, rawY:sy, yaw:pose.yaw, pitch:pose.pitch};
   }
   function isEyeRollingOnPoint() {
-    if(!prevEye || eyeWindow.length<4) return {rolling:true, reason:'원 중심에 시선을 맞춰 주세요'};
-    if(eyeStep>.17 || eyeSpread>.21) return {rolling:true, reason:'눈이 움직였어요 · 원 중심을 고정해 바라보세요'};
+    if(!prevEye || eyeWindow.length<3) return {rolling:false, reason:''};
+    if(eyeStep>.26 || eyeSpread>.32) return {rolling:true, reason:'눈이 움직였어요 · 원 중심을 고정해 바라보세요'};
     if(pointAnchor) {
       const anchorDist=Math.hypot(prevEye.nx-pointAnchor.nx, prevEye.ny-pointAnchor.ny);
-      if(anchorDist>.23) return {rolling:true, severe:anchorDist>.34, reason:'눈이 돌아갔어요 · 원 중심을 바라봐 주세요'};
-    }
-    if(state==='CALIBRATING' && sequenceIndex>0 && centerEyeAnchor) {
-      const targetOffset=Math.hypot(target.x-.5, target.y-.5);
-      const eyeFromCenter=Math.hypot(prevEye.nx-centerEyeAnchor.nx, prevEye.ny-centerEyeAnchor.ny);
-      if(targetOffset>.28 && eyeFromCenter<.14) {
-        return {rolling:true, reason:'시선을 초록 원 위치로 옮겨 바라봐 주세요'};
-      }
+      if(anchorDist>.35) return {rolling:true, severe:anchorDist>.55, reason:'눈이 돌아갔어요 · 원 중심을 바라봐 주세요'};
     }
     return {rolling:false, reason:''};
   }
@@ -316,19 +309,21 @@
     invalidSince=0; issue=''; lastFeature=f;
     const eyeNow=normEye(f.values,f.pose);
     if(prevEye) {
-      eyeStep=Math.hypot(eyeNow.nx-prevEye.nx, eyeNow.ny-prevEye.ny, (eyeNow.yaw-prevEye.yaw)*3.5, (eyeNow.pitch-prevEye.pitch)*3.5);
+      eyeStep=Math.hypot(eyeNow.nx-prevEye.nx, eyeNow.ny-prevEye.ny, (eyeNow.yaw-prevEye.yaw)*2.5, (eyeNow.pitch-prevEye.pitch)*2.5);
     } else {
       eyeStep=0;
     }
     eyeWindow.push(eyeNow);
-    if(eyeWindow.length>6) eyeWindow.shift();
+    if(eyeWindow.length>5) eyeWindow.shift();
     eyeSpread=eyeWindow.length>=2?Math.max(...eyeWindow.map(e=>Math.hypot(eyeNow.nx-e.nx,eyeNow.ny-e.ny))):0;
-    eyeSpeed=eyeSpeed*.55+Math.max(eyeStep*1.35,eyeSpread)*.45;
+    eyeSpeed=eyeSpeed*.6+Math.max(eyeStep,eyeSpread*.8)*.4;
     prevEye=eyeNow;
     if(state==='ALIGN') { alignSamples.push(f); if(alignSamples.length>45) alignSamples.shift(); }
     if(['CALIBRATING','VALIDATING','COUNTDOWN'].includes(state) && sequenceClock>=CFG.settle) {
-      if(!pointAnchor && eyeWindow.length>=5 && eyeSpread<.19 && eyeStep<.15) {
+      if(!pointAnchor && eyeWindow.length>=3 && eyeSpread<.30) {
         pointAnchor={nx:median(eyeWindow.map(e=>e.nx)), ny:median(eyeWindow.map(e=>e.ny))};
+      } else if(pointAnchor && eyeStep<.22) {
+        pointAnchor={nx:pointAnchor.nx*.9+prevEye.nx*.1, ny:pointAnchor.ny*.9+prevEye.ny*.1};
       }
       const check=isEyeRollingOnPoint();
       if(!check.rolling && state==='CALIBRATING') pointSamples.push(f.values);
@@ -370,7 +365,7 @@
     const points=state==='CALIBRATING'?calibrationPoints:validationPoints;
     sequenceClock+=dt;
     if(!t.valid) {
-      collectionTime=Math.max(0,collectionTime-dt*1.2);
+      collectionTime=Math.max(0,collectionTime-dt*.9);
       if(t.kind!=='blink') notice(t.reason,'warn');
       positionNotice();
       return;
@@ -381,13 +376,8 @@
     }
     const check=isEyeRollingOnPoint();
     if(check.rolling) {
-      collectionTime=Math.max(0,collectionTime-dt*1.8);
-      if(check.severe) {
-        pointAnchor=null;
-        pointSamples=[];
-        pointPredictions=[];
-        collectionTime=0;
-      }
+      collectionTime=Math.max(0,collectionTime-dt*1.1);
+      if(check.severe) pointAnchor=null;
       notice(check.reason,'warn');
       positionNotice();
       return;
@@ -395,15 +385,12 @@
     collectionTime+=dt;
     notice();
     positionNotice();
-    const minReq=Math.min(CFG.minSamples,16);
+    const minReq=Math.min(CFG.minSamples,10);
     const count=state==='CALIBRATING'?pointSamples.length:pointPredictions.length;
-    if(collectionTime<CFG.collect || count<minReq) return;
+    if(collectionTime<CFG.collect || (count<minReq && collectionTime<CFG.collect+.4)) return;
     const trimmed=trimmedSamples(pointSamples);
     if(state==='CALIBRATING') {
       groups.push({target:{...target},samples:trimmed});
-      if(sequenceIndex===0 && trimmed.length) {
-        centerEyeAnchor={nx:median(trimmed.map(v=>v[0]))/.018, ny:median(trimmed.map(v=>v[1]))/.012};
-      }
     } else {
       const distances=pointPredictions.map(p=>hypot(p,target)); errors.push(...distances); pointErrors.push(median(distances));
       validationGroups.push({target:{...target},samples:trimmed}); validationRecords.push({target:{...target},predictions:[...pointPredictions]});

@@ -20,7 +20,7 @@ async function handle(message:any) {
     if(type==='step') {
       const result=await tracker.step(payload.frame,payload.timestamp);
       const valid=result.facialLandmarks.length>0 && result.gazeState==='open' && result.normPog.every(Number.isFinite);
-      if(valid && payload.capture && payload.timestamp-lastCapture>=220) {
+      if(valid && payload.capture && payload.timestamp-lastCapture>=160) {
         const entries=supports.get(payload.point)||[];
         if(entries.length<4) {entries.push({eyePatch:result.eyePatch,headVector:result.headVector,origin:result.faceOrigin3D,target:payload.target});supports.set(payload.point,entries);lastCapture=payload.timestamp;}
       }
@@ -28,7 +28,7 @@ async function handle(message:any) {
     }
     if(type==='adapt') {
       const rows=[...supports.values()].flat();
-      if(supports.size!==9 || [...supports.values()].some(a=>a.length<3))throw Error('9점 보정 샘플이 부족합니다.');
+      if(supports.size!==9 || [...supports.values()].some(a=>a.length<2))throw Error('9점 보정 샘플이 부족합니다.');
       const fineTune=tf.getBackend()==='webgl';
       await tracker.adapt(rows.map(r=>r.eyePatch),rows.map(r=>r.headVector),rows.map(r=>r.origin),rows.map(r=>r.target),fineTune?1:0,1e-5,'calib');
       supports.clear();
