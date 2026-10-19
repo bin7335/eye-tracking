@@ -281,7 +281,7 @@
   <main>
     <section class="play-card" aria-label="시선 집중 챌린지">
       <div class="hud">
-        <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">60</span><small>초</small></div></div>
+        <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">30</span><small>초</small></div></div>
         <div><div class="hud-label">타겟 유지율</div><div class="hud-value"><span id="retention">—</span><small>%</small></div></div>
         <div class="energy"><div class="energy-line"><span>집중 스코어 (1000점 만점)</span><b id="energy-text">0 / 1000점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
       </div>
@@ -307,23 +307,23 @@
               <circle cx="35" cy="29" r="2" fill="#ffffff"/>
             </svg>
           </div>
-          <div id="overlay-kicker">60 SECOND CHALLENGE</div>
+          <div id="overlay-kicker">30 SECOND CHALLENGE</div>
           <h2 id="overlay-title">움직이는 구슬을 따라가는 집중력.</h2>
-          <p id="overlay-copy">에메랄드 타겟 구슬만 눈(홍채)으로 끝까지 부드럽게 따라가 보세요.
-흔들림 없이 따라갈수록 1000점 만점 집중 스코어와 롤 티어가 올라갑니다.</p>
+          <p id="overlay-copy">에메랄드 타겟 구슬 한가운데 표시되는 실시간 점수를 응시하며 30초간 끝까지 따라가 보세요.
+주변의 강력한 함정 유혹을 이겨낼수록 1000점 만점 스코어와 롤 티어가 올라갑니다.</p>
           <div id="target-guide" class="target-guide">
             <div class="guide-item target-ok">
               <div class="guide-orb" aria-hidden="true"></div>
               <div class="guide-text">
-                <strong>따라갈 타겟 · 에메랄드 구슬</strong>
-                <span>가운데 흰 점이 있는 초록 구슬만 시선으로 부드럽게 추적하세요.</span>
+                <strong>따라갈 타겟 · 에메랄드 구슬 (중앙 점수)</strong>
+                <span>원 한가운데에 내 실시간 집중 스코어가 표시되는 초록 구슬만 끝까지 응시하세요.</span>
               </div>
             </div>
             <div class="guide-item target-ignore">
               <div class="guide-decoy" aria-hidden="true"></div>
               <div class="guide-text">
-                <strong>무시할 요소 · 주변 교란 신호</strong>
-                <span>군데군데 조용히 켜졌다 사라지는 붉은 불빛에는 눈을 돌리지 마세요.</span>
+                <strong>무시할 요소 · 대형 함정 타겟 & 보너스 팝업</strong>
+                <span>주변에 크게 터지는 가짜 타겟(999점, +500점 찬스 등)에 눈을 돌리면 즉시 감점됩니다.</span>
               </div>
             </div>
           </div>
@@ -335,7 +335,7 @@
     </section>
     <aside>
       <section class="panel"><h2>내 위치 확인</h2><div id="preview"><video id="video" autoplay playsinline muted></video><div id="preview-guide"></div></div><p id="camera-caption" class="camera-caption">얼굴에 빛이 고르게 닿도록 앉고,<br>카메라를 화면 위 중앙에 두세요.</p></section>
-      <section class="panel"><h2>체험 순서</h2><ol class="steps"><li id="step-align"><b>1</b>얼굴 위치 맞추기</li><li id="step-calibrate"><b>2</b>9개 점으로 시선 보정</li><li id="step-validate"><b>3</b>보정 상태 확인</li><li id="step-play"><b>4</b>60초 홍채 추적 챌린지</li></ol></section>
+      <section class="panel"><h2>체험 순서</h2><ol class="steps"><li id="step-align"><b>1</b>얼굴 위치 맞추기</li><li id="step-calibrate"><b>2</b>9개 점으로 시선 보정</li><li id="step-validate"><b>3</b>보정 상태 확인</li><li id="step-play"><b>4</b>30초 홍채 추적 챌린지</li></ol></section>
       <section class="panel"><h2>체험 설정</h2><label for="mode">타겟 움직임 & 방해 모드</label><select id="mode"><option value="moving" selected>부드러운 유영 + 시선 방해 (기본)</option><option value="figure8">8자 리듬 궤도 + 강력 방해 (도전)</option><option value="fixed">중앙 고정 + 주변 방해 (클래식)</option></select><label class="toggle"><input id="show-gaze" type="checkbox">추정 시선 표시</label><p class="hint">자세나 화면 크기가 바뀌면 다시 보정해 주세요. 인식이 불안정할 때는 시간이 잠시 멈춥니다.</p><details><summary>운영자 진단</summary><pre id="diagnostics">카메라 대기</pre><button id="recalibrate" class="secondary" style="margin-top:10px;padding:8px 12px">처음부터 다시 보정</button></details></section>
     </aside>
   </main>
@@ -353,7 +353,7 @@
   const hypot = (a,b) => Math.hypot(a.x-b.x,a.y-b.y);
   const calibrationPoints = [ [.5,.5],[.15,.18],[.5,.18],[.85,.18],[.85,.5],[.85,.82],[.5,.82],[.15,.82],[.15,.5] ].map(([x,y])=>({x,y}));
   const validationPoints = [[.5,.5],[.25,.5],[.75,.5],[.5,.25],[.5,.75]].map(([x,y])=>({x,y}));
-  const CFG = { duration:60, settle:.45, collect:1.2, minSamples:10, staleMs:250, blinkGraceMs:450, lossGrace:.55, recovery:.35, sampleTimeout:14, cameraTimeoutMs:30000 };
+  const CFG = { duration:30, settle:.45, collect:1.2, minSamples:10, staleMs:250, blinkGraceMs:450, lossGrace:.55, recovery:.35, sampleTimeout:14, cameraTimeoutMs:30000 };
   let state='IDLE', ready=false, loading=false, cameraFailed=false, faceMesh=null, stream=null, generation=0, pumpStarted=false;
   let lastFrameAt=0, lastLoopAt=0, lastFeature=null, prevEye=null, eyeWindow=[], eyeStep=0, eyeSpread=0, eyeSpeed=0, pointAnchor=null, centerEyeAnchor=null, eyeAnchor=null, gazeBias={x:0,y:0}, invalidSince=0, issue='카메라 대기', poseBase=null, alignSamples=[];
   let frameSize={w:640,h:480}, stageSize={w:0,h:0}, calibrationSize=null;
@@ -447,7 +447,7 @@
     const strictSmooth=Math.pow(avgSmooth/100,1.45)*100;
     const breakPenalty=Math.min(280,breakCount*28);
     const completionFactor=.25+.75*Math.pow(progressRatio,1.15);
-    const rawAnalytic=(strictRetention*6.2+strictSmooth*2.8+clamp(streakTime/18,0,1)*100)*completionFactor;
+    const rawAnalytic=(strictRetention*6.2+strictSmooth*2.8+clamp(streakTime/10,0,1)*100)*completionFactor;
     const currentScore=Math.round(clamp(focusScore,0,1000));
     const blended=currentScore*.55+rawAnalytic*.45-breakPenalty;
     const capByRetention=retention<50?Math.min(360,retention*6.5):retention<70?Math.min(530,retention*7.4):retention<82?Math.min(690,retention*8.2):1000;
@@ -614,7 +614,7 @@
     radius=clamp((Number.isFinite(p90)?p90:.15)+.05,.15,.22);
     setState('READY'); status('준비 완료','good');
     ui.quality.textContent=quality.stabilityMode?'홍채 정밀 추적 모드 적용':'보정 확인 완료 · '+(med<.08?'정밀 홍채 추적':'안정 홍채 추적');
-    overlay('준비됐어요.','아래 안내된 [초록색 에메랄드 타겟 구슬] 하나만 끝까지 눈으로 따라가세요.\n주변에 조용히 나타나는 미끼 표식에 한눈을 팔면 즉시 감점됩니다 (1000점 만점 엄격 평가).','play','60초 챌린지 시작',true,'READY TO FOCUS');
+    overlay('준비됐어요.','아래 안내된 [초록색 에메랄드 타겟 구슬] 하나만 끝까지 눈으로 따라가세요.\n주변에 강렬하게 나타나는 함정 타겟과 팝업에 한눈을 팔면 즉시 감점됩니다 (30초 · 1000점 만점).','play','30초 챌린지 시작',true,'READY TO FOCUS');
   }
   function sequenceTick(dt,now,t) {
     const points=state==='CALIBRATING'?calibrationPoints:validationPoints;
@@ -663,7 +663,7 @@
     if(!quality) quality={median:.08,p90:.14,points:[],stabilityMode:true};
     hideOverlay(); resetGaze(); setState('COUNTDOWN'); sequenceClock=0; target={x:.5,y:.5}; prevTarget={x:.5,y:.5};
     focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; breakCount=0; wasBroken=false; lureSlot=-1; activeLures=[]; elapsed=0; validTime=0; onTargetTime=0; gazeBias={x:0,y:0};
-    ui['stage-title'].textContent='화면 중앙의 초록색 타겟 구슬을 응시하세요'; ui['stage-copy'].textContent='구슬이 100% 채워지면 궤도를 따라 부드럽게 이동합니다. 이 초록 구슬만 끝까지 따라가세요.'; status('시작 준비','good');
+    ui['stage-title'].textContent='화면 중앙의 초록색 타겟 구슬을 응시하세요'; ui['stage-copy'].textContent='구슬이 100% 채워지면 30초 동안 궤도를 따라 이동합니다. 구슬 한가운데 점수를 보며 끝까지 따라가세요.'; status('시작 준비','good');
   }
   function startGame(now) {
     setState('PLAYING'); focusScore=0; smoothnessSum=0; smoothnessTime=0; streakTime=0; breakCount=0; wasBroken=false; lureSlot=-1; activeLures=[]; elapsed=0; validTime=0; onTargetTime=0; awayTime=0; recoveryTime=0; paused=true; lastGoodAt=0; pauseStartedAt=now;
@@ -741,20 +741,20 @@
       awayTime=0;
       streakTime+=dt;
       const proxScore=clamp(1-dist/(radius*1.15),.15,1);
-      const comboBonus=clamp(streakTime/14,0,1)*.14;
+      const comboBonus=clamp(streakTime/8,0,1)*.14;
       const gainRate=(1000/CFG.duration)*(proxScore*.48+irisSmooth*.42+comboBonus);
       focusScore=clamp(focusScore+gainRate*dt,0,1000);
       notice();
     } else {
       awayTime+=dt;
       streakTime=Math.max(0,streakTime-dt*3.5);
-      if(awayTime>.35 && !wasBroken) {
+      if(awayTime>.32 && !wasBroken) {
         breakCount++;
         wasBroken=true;
-        focusScore=Math.max(0,focusScore-22);
+        focusScore=Math.max(0,focusScore-26);
       }
-      if(awayTime>.30) {
-        focusScore=Math.max(0,focusScore-34*dt);
+      if(awayTime>.28) {
+        focusScore=Math.max(0,focusScore-48*dt);
         notice(eyeSpeed>=.18||eyeSpread>=.18?'눈동자 흔들림 감지 (-감점) · 초록 타겟만 부드럽게 따라가세요':'타겟 이탈 감지 (-감점) · 에메랄드 구슬에 시선을 고정하세요','warn');
       }
     }
@@ -763,59 +763,94 @@
     if(elapsed>=CFG.duration) endGame();
   }
   const LURE_CANDIDATES=[
-    {x:.15,y:.20},{x:.85,y:.20},{x:.14,y:.50},{x:.86,y:.50},
-    {x:.15,y:.80},{x:.85,y:.80},{x:.50,y:.15},{x:.50,y:.85}
+    {x:.24,y:.25},{x:.76,y:.25},{x:.20,y:.50},{x:.80,y:.50},
+    {x:.24,y:.75},{x:.76,y:.75},{x:.50,y:.20},{x:.50,y:.80},
+    {x:.34,y:.30},{x:.66,y:.30},{x:.34,y:.70},{x:.66,y:.70}
   ];
   const LURE_STYLES=[
-    {type:'orb',color:'#f43f5e',glow:'rgba(244,63,94,0.18)',label:'DECOY'},
-    {type:'hex',color:'#a855f7',glow:'rgba(168,85,247,0.16)',label:'IGNORE'},
-    {type:'ring',color:'#f59e0b',glow:'rgba(245,158,11,0.16)',label:'FAKE'}
+    {type:'fake_orb',color:'#f43f5e',accent:'#fda4af',glow:'rgba(244,63,94,0.34)',inner:'999',label:'⚠️ FAKE TARGET'},
+    {type:'alert_box',color:'#f59e0b',accent:'#fef08a',glow:'rgba(245,158,11,0.32)',inner:'🔥 +500점 찬스?!',label:'BONUS TRAP'},
+    {type:'radar_burst',color:'#a855f7',accent:'#e9d5ff',glow:'rgba(168,85,247,0.34)',inner:'LOOK!',label:'⚡ 시선 강탈 함정'},
+    {type:'siren_ring',color:'#ec4899',accent:'#fbcfe8',glow:'rgba(236,72,153,0.34)',inner:'+300?',label:'🚨 여기 보지 마세요!'}
   ];
   function drawDistractors(now,w,h) {
-    if(elapsed<2.5) return;
-    const windowDur=4.4;
-    const slot=Math.floor((elapsed-2.5)/windowDur);
-    const wPhase=((elapsed-2.5)%windowDur)/windowDur;
+    if(elapsed<1.0) return;
+    const windowDur=2.6;
+    const slot=Math.floor((elapsed-1.0)/windowDur);
+    const wPhase=((elapsed-1.0)%windowDur)/windowDur;
     if(slot!==lureSlot) {
       lureSlot=slot;
-      const midTarget=targetPositionAt(Math.min(CFG.duration,elapsed+windowDur*.5),ui.mode.value);
+      const midTarget=targetPositionAt(Math.min(CFG.duration,elapsed+windowDur*.45),ui.mode.value);
+      const endTarget=targetPositionAt(Math.min(CFG.duration,elapsed+windowDur*.9),ui.mode.value);
       const farSpots=LURE_CANDIDATES.filter(c=>
-        Math.hypot(c.x-target.x,c.y-target.y)>.28 &&
-        Math.hypot(c.x-midTarget.x,c.y-midTarget.y)>.26
+        Math.hypot(c.x-target.x,c.y-target.y)>.21 &&
+        Math.hypot(c.x-midTarget.x,c.y-midTarget.y)>.20 &&
+        Math.hypot(c.x-endTarget.x,c.y-endTarget.y)>.20
       );
-      const pool=farSpots.length>=2?farSpots:LURE_CANDIDATES;
-      const count=elapsed>22?2:1;
+      const pool=farSpots.length>=3?farSpots:LURE_CANDIDATES;
+      const count=elapsed>8?3:2;
       activeLures=[];
       for(let i=0;i<count;i++) {
-        const spot=pool[(slot*3+i*5)%pool.length];
+        const spot=pool[(slot*5+i*3)%pool.length];
         const style=LURE_STYLES[(slot+i)%LURE_STYLES.length];
-        activeLures.push({x:spot.x,y:spot.y,style});
+        activeLures.push({x:spot.x,y:spot.y,style,seed:i*1.7+slot});
       }
     }
-    const alpha=Math.pow(Math.sin(wPhase*Math.PI),.85)*.68;
-    if(alpha<=.03) return;
+    const env=wPhase<.16?wPhase/.16:wPhase>.82?(1-wPhase)/.18:1;
+    const alpha=clamp(env,0,1)*.95;
+    if(alpha<=.04) return;
+    const popScale=wPhase<.18?(.55+.60*Math.sin((wPhase/.18)*(Math.PI/2))):(1+Math.sin(now/150)*.08);
     ctx.save();
-    ctx.globalAlpha=alpha;
-    const pulse=1+Math.sin(now/360)*.10;
     for(const lure of activeLures) {
-      const dx=lure.x*w, dy=lure.y*h, {style}=lure;
-      ctx.beginPath(); ctx.arc(dx,dy,20*pulse,0,2*Math.PI); ctx.fillStyle=style.glow; ctx.fill();
-      if(style.type==='orb') {
-        ctx.beginPath(); ctx.arc(dx,dy,9,0,2*Math.PI); ctx.fillStyle=style.color; ctx.fill();
-        ctx.beginPath(); ctx.arc(dx,dy,15*pulse,0,2*Math.PI); ctx.strokeStyle=style.color; ctx.lineWidth=1.3; ctx.stroke();
-      } else if(style.type==='hex') {
-        ctx.save(); ctx.translate(dx,dy); ctx.rotate(now/1800);
+      const wobbleX=Math.sin(now/260+lure.seed)*6, wobbleY=Math.cos(now/290+lure.seed)*6;
+      const dx=lure.x*w+wobbleX, dy=lure.y*h+wobbleY, {style}=lure;
+      ctx.save();
+      ctx.globalAlpha=alpha;
+      ctx.translate(dx,dy);
+      const wave=((now/11+lure.seed*18)%54);
+      ctx.beginPath(); ctx.arc(0,0,22+wave,0,2*Math.PI);
+      ctx.strokeStyle=style.color; ctx.lineWidth=2.2*(1-wave/54); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,46*popScale,0,2*Math.PI);
+      ctx.fillStyle=style.glow; ctx.fill();
+      ctx.scale(popScale,popScale);
+      if(style.type==='fake_orb') {
+        const r=31;
+        const g=ctx.createRadialGradient(-6,-6,3,0,0,r);
+        g.addColorStop(0,'#fecdd3'); g.addColorStop(.5,'#f43f5e'); g.addColorStop(1,'#9f1239');
+        ctx.beginPath(); ctx.arc(0,0,r,0,2*Math.PI); ctx.fillStyle=g; ctx.fill();
+        ctx.lineWidth=2.8; ctx.strokeStyle='#fda4af'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(0,0,r*.64,0,2*Math.PI); ctx.fillStyle='rgba(45,6,20,0.82)'; ctx.fill();
+        ctx.font='900 13px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffffff'; ctx.fillText(style.inner,0,1);
+      } else if(style.type==='alert_box') {
+        const bw=138, bh=42;
+        ctx.fillStyle='rgba(24,16,6,0.92)';
+        ctx.strokeStyle=style.color; ctx.lineWidth=2.6;
+        ctx.beginPath(); ctx.roundRect(-bw/2,-bh/2,bw,bh,14); ctx.fill(); ctx.stroke();
+        ctx.font='900 13px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle=style.accent; ctx.fillText(style.inner,0,1);
+      } else if(style.type==='radar_burst') {
+        ctx.save(); ctx.rotate(now/320);
         ctx.beginPath();
-        for(let i=0;i<6;i++) { const a=i*Math.PI/3, px=Math.cos(a)*12, py=Math.sin(a)*12; if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
-        ctx.closePath(); ctx.strokeStyle=style.color; ctx.lineWidth=1.6; ctx.stroke();
+        for(let i=0;i<8;i++) { const r=i%2===0?36:14, a=i*Math.PI/4; if(i===0) ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r); else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r); }
+        ctx.closePath(); ctx.fillStyle='rgba(168,85,247,0.45)'; ctx.fill();
+        ctx.lineWidth=2.2; ctx.strokeStyle=style.accent; ctx.stroke();
         ctx.restore();
+        ctx.beginPath(); ctx.arc(0,0,17,0,2*Math.PI); ctx.fillStyle='rgba(28,10,48,0.88)'; ctx.fill();
+        ctx.font='900 11px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffffff'; ctx.fillText(style.inner,0,1);
       } else {
-        ctx.beginPath(); ctx.arc(dx,dy,11,0,2*Math.PI); ctx.strokeStyle=style.color; ctx.lineWidth=2; ctx.stroke();
-        ctx.beginPath(); ctx.arc(dx,dy,3.5,0,2*Math.PI); ctx.fillStyle=style.color; ctx.fill();
+        ctx.save(); ctx.rotate(-now/280);
+        ctx.beginPath(); ctx.arc(0,0,32,0,2*Math.PI); ctx.setLineDash([10,6]); ctx.lineWidth=3; ctx.strokeStyle=style.color; ctx.stroke();
+        ctx.restore();
+        ctx.beginPath(); ctx.arc(0,0,21,0,2*Math.PI); ctx.fillStyle=style.color; ctx.fill();
+        ctx.font='900 12px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle='#ffffff'; ctx.fillText(style.inner,0,1);
       }
-      ctx.font='700 9px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillStyle='rgba(226,232,240,0.65)';
-      ctx.fillText(style.label,dx,dy-22);
+      ctx.font='800 11px "Pretendard",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=style.accent;
+      ctx.fillText(style.label,0,-42);
+      ctx.restore();
     }
     ctx.restore();
   }
@@ -852,7 +887,7 @@
     ctx.globalAlpha=alpha;
     ctx.font='700 12px "Pretendard","Segoe UI",sans-serif';
     const padX=12, boxH=26, tw=ctx.measureText(text).width, boxW=tw+padX*2;
-    const bx=x-boxW/2, by=y-62;
+    const bx=x-boxW/2, by=y-68;
     ctx.fillStyle='rgba(6,78,59,0.88)';
     ctx.strokeStyle='rgba(52,211,153,0.8)';
     ctx.lineWidth=1.4;
@@ -892,20 +927,26 @@
         ctx.restore();
       }
       const shaking=!ui.notice.hidden;
-      const size=24;
-      ctx.beginPath(); ctx.arc(x,y,size+11+Math.sin(now/500)*2.2,0,Math.PI*2);
-      ctx.fillStyle=shaking?'rgba(245,158,11,0.18)':'rgba(16,185,129,0.18)'; ctx.fill();
-      const orbGrad=ctx.createRadialGradient(x-6,y-6,2,x,y,size);
+      const size=32;
+      ctx.beginPath(); ctx.arc(x,y,size+12+Math.sin(now/500)*2.4,0,Math.PI*2);
+      ctx.fillStyle=shaking?'rgba(245,158,11,0.20)':'rgba(16,185,129,0.20)'; ctx.fill();
+      const orbGrad=ctx.createRadialGradient(x-7,y-7,3,x,y,size);
       if(shaking) { orbGrad.addColorStop(0,'#fde68a'); orbGrad.addColorStop(.55,'#f59e0b'); orbGrad.addColorStop(1,'#b45309'); }
       else { orbGrad.addColorStop(0,'#a7f3d0'); orbGrad.addColorStop(.5,'#10b981'); orbGrad.addColorStop(1,'#047857'); }
       ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2);
       ctx.fillStyle=orbGrad; ctx.fill();
-      ctx.lineWidth=2; ctx.strokeStyle=shaking?'rgba(251,191,36,0.75)':'rgba(52,211,153,0.85)'; ctx.stroke();
-      ctx.beginPath(); ctx.arc(x-5,y-6,size*.22,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.65)'; ctx.fill();
-      ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2); ctx.fillStyle='#ffffff'; ctx.fill();
-      if(elapsed<4.2) {
-        const calloutAlpha=clamp((4.2-elapsed)/1.2,0,1);
-        drawTargetCallout(x,y,'🎯 추적 타겟',calloutAlpha);
+      ctx.lineWidth=2.4; ctx.strokeStyle=shaking?'rgba(251,191,36,0.85)':'rgba(52,211,153,0.92)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x,y,size*.68,0,Math.PI*2);
+      ctx.fillStyle=shaking?'rgba(45,20,4,0.84)':'rgba(4,26,20,0.84)'; ctx.fill();
+      ctx.lineWidth=1.2; ctx.strokeStyle=shaking?'rgba(251,191,36,0.45)':'rgba(52,211,153,0.45)'; ctx.stroke();
+      const liveScore=Math.round(clamp(focusScore,0,1000));
+      ctx.font='800 13px "Pretendard","Segoe UI",sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=shaking?'#fde68a':'#ecfdf5';
+      ctx.fillText(String(liveScore),x,y+0.5);
+      if(elapsed<3.8) {
+        const calloutAlpha=clamp((3.8-elapsed)/1.2,0,1);
+        drawTargetCallout(x,y,'🎯 추적 타겟 (중앙 점수 응시)',calloutAlpha);
       }
     }
     if(ui['show-gaze'].checked && gaze && now-gazeValidAt<CFG.staleMs) { ctx.beginPath(); ctx.arc(clamp(gaze.x,0,1)*w,clamp(gaze.y,0,1)*h,7,0,Math.PI*2); ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2; ctx.stroke(); }

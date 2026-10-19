@@ -281,7 +281,7 @@
   <main>
     <section class="play-card" aria-label="시선 집중 챌린지">
       <div class="hud">
-        <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">60</span><small>초</small></div></div>
+        <div><div class="hud-label">남은 시간</div><div class="hud-value"><span id="timer">30</span><small>초</small></div></div>
         <div><div class="hud-label">타겟 유지율</div><div class="hud-value"><span id="retention">—</span><small>%</small></div></div>
         <div class="energy"><div class="energy-line"><span>집중 스코어 (1000점 만점)</span><b id="energy-text">0 / 1000점</b></div><div class="energy-track"><div id="energy-fill" style="width:0%"></div></div></div>
       </div>
@@ -307,23 +307,23 @@
               <circle cx="35" cy="29" r="2" fill="#ffffff"/>
             </svg>
           </div>
-          <div id="overlay-kicker">60 SECOND CHALLENGE</div>
+          <div id="overlay-kicker">30 SECOND CHALLENGE</div>
           <h2 id="overlay-title">움직이는 구슬을 따라가는 집중력.</h2>
-          <p id="overlay-copy">에메랄드 타겟 구슬만 눈(홍채)으로 끝까지 부드럽게 따라가 보세요.
-흔들림 없이 따라갈수록 1000점 만점 집중 스코어와 롤 티어가 올라갑니다.</p>
+          <p id="overlay-copy">에메랄드 타겟 구슬 한가운데 표시되는 실시간 점수를 응시하며 30초간 끝까지 따라가 보세요.
+주변의 강력한 함정 유혹을 이겨낼수록 1000점 만점 스코어와 롤 티어가 올라갑니다.</p>
           <div id="target-guide" class="target-guide">
             <div class="guide-item target-ok">
               <div class="guide-orb" aria-hidden="true"></div>
               <div class="guide-text">
-                <strong>따라갈 타겟 · 에메랄드 구슬</strong>
-                <span>가운데 흰 점이 있는 초록 구슬만 시선으로 부드럽게 추적하세요.</span>
+                <strong>따라갈 타겟 · 에메랄드 구슬 (중앙 점수)</strong>
+                <span>원 한가운데에 내 실시간 집중 스코어가 표시되는 초록 구슬만 끝까지 응시하세요.</span>
               </div>
             </div>
             <div class="guide-item target-ignore">
               <div class="guide-decoy" aria-hidden="true"></div>
               <div class="guide-text">
-                <strong>무시할 요소 · 주변 교란 신호</strong>
-                <span>군데군데 조용히 켜졌다 사라지는 붉은 불빛에는 눈을 돌리지 마세요.</span>
+                <strong>무시할 요소 · 대형 함정 타겟 & 보너스 팝업</strong>
+                <span>주변에 크게 터지는 가짜 타겟(999점, +500점 찬스 등)에 눈을 돌리면 즉시 감점됩니다.</span>
               </div>
             </div>
           </div>
@@ -335,7 +335,7 @@
     </section>
     <aside>
       <section class="panel"><h2>내 위치 확인</h2><div id="preview"><video id="video" autoplay playsinline muted></video><div id="preview-guide"></div></div><p id="camera-caption" class="camera-caption">얼굴에 빛이 고르게 닿도록 앉고,<br>카메라를 화면 위 중앙에 두세요.</p></section>
-      <section class="panel"><h2>체험 순서</h2><ol class="steps"><li id="step-align"><b>1</b>얼굴 위치 맞추기</li><li id="step-calibrate"><b>2</b>9개 점으로 CNN 개인 보정</li><li id="step-validate"><b>3</b>보정 상태 확인</li><li id="step-play"><b>4</b>60초 홍채 추적 챌린지</li></ol></section>
+      <section class="panel"><h2>체험 순서</h2><ol class="steps"><li id="step-align"><b>1</b>얼굴 위치 맞추기</li><li id="step-calibrate"><b>2</b>9개 점으로 CNN 개인 보정</li><li id="step-validate"><b>3</b>보정 상태 확인</li><li id="step-play"><b>4</b>30초 홍채 추적 챌린지</li></ol></section>
       <section class="panel"><h2>체험 설정</h2><label for="mode">타겟 움직임 & 방해 모드</label><select id="mode"><option value="moving" selected>부드러운 유영 + 시선 방해 (기본)</option><option value="figure8">8자 리듬 궤도 + 강력 방해 (도전)</option><option value="fixed">중앙 고정 + 주변 방해 (클래식)</option></select><label class="toggle"><input id="show-gaze" type="checkbox">추정 시선 표시</label><p class="hint">자세나 화면 크기가 바뀌면 다시 보정해 주세요. 인식이 불안정할 때는 시간이 잠시 멈춥니다.</p><details><summary>운영자 진단</summary><pre id="diagnostics">카메라 대기</pre><button id="recalibrate" class="secondary" style="margin-top:10px;padding:8px 12px">처음부터 다시 보정</button></details></section>
     </aside>
   </main>
