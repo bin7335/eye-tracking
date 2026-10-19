@@ -49,20 +49,21 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
   const checks=[[.5,.5],[.25,.5],[.75,.5],[.5,.25],[.5,.75]].map(([x,y])=>({x,y}));
   const captureCanvas=document.createElement('canvas'),captureCtx=captureCanvas.getContext('2d',{willReadFrequently:true});
   let worker=null,stream=null,generation=0,id=0,pending=new Map(),busy=false,connected=false,action='connect',state='IDLE';
-  let target={x:.5,y:.5},prevTarget={x:.5,y:.5},size={w:0,h:0},calibrationRect=null,lastAt=0,lastLoop=0,good=false,issue='',gaze=null,raw=null,gazeAt=0,pose=null,basePose=null,prevEye=null,eyeWindow=[],eyeStep=0,eyeSpread=0,eyeSpeed=0,pointAnchor=null,centerEyeAnchor=null,eyeAnchor=null,gazeBias={x:0,y:0};
+  let target={x:.5,y:.5},prevTarget={x:.5,y:.5},renderOrb={x:.5,y:.5},orbTrail=[],size={w:0,h:0},calibrationRect=null,lastAt=0,lastLoop=0,hudAt=0,good=false,issue='',gaze=null,raw=null,gazeAt=0,pose=null,basePose=null,prevEye=null,eyeWindow=[],eyeStep=0,eyeSpread=0,eyeSpeed=0,pointAnchor=null,prevPointAnchor=null,centerEyeAnchor=null,eyeAnchor=null,gazeBias={x:0,y:0};
   let phaseTime=0,collectTime=0,point=0,samples=0,validation=[],errors=[],quality=null,report=null,stable=0,alignHistory=[];
   let focusScore=0,smoothnessSum=0,smoothnessTime=0,streakTime=0,breakCount=0,wasBroken=false,lureSlot=-1,activeLures=[],elapsed=0,validTime=0,insideTime=0,away=0,paused=true,recovery=0,pauseAt=0,radius=.18,inference=0,tensors=0,adaptedSamples=0;
   let pumpToken=0,lastPumpError='',diagnosticAt=0,runToken=0,backend='',adaptation='';
   function status(text,tone=''){ $('status').textContent=text;$('status').dataset.tone=tone; }
   function positionNotice(){
     const el=$('notice');if(el.hidden)return;
-    const xPct=clamp(target.x*100,14,86),yPct=target.y*100,below=target.y<.23;
-    const offset=['CALIBRATING','VALIDATING'].includes(state)?42:38;
+    const ref=state==='PLAYING'?renderOrb:target;
+    const xPct=clamp(ref.x*100,14,86),yPct=ref.y*100,below=ref.y<.23;
+    const offset=['CALIBRATING','VALIDATING'].includes(state)?42:44;
     el.style.left=xPct+'%';
     el.style.top=`calc(${yPct}% ${below?'+':'-'} ${offset}px)`;
     el.style.transform=below?'translate(-50%,0)':'translate(-50%,-100%)';
   }
-  function notice(text='',tone='warn'){ const el=$('notice');el.textContent=text;el.dataset.tone=tone;el.hidden=!text;if(text)positionNotice(); }
+  function notice(text='',tone='warn'){ const el=$('notice');if(el.textContent===text&&el.dataset.tone===tone&&el.hidden===!text){if(text)positionNotice();return;}el.textContent=text;el.dataset.tone=tone;el.hidden=!text;if(text)positionNotice(); }
   function setState(next){
     state=next;notice();
     if($('stage-note'))$('stage-note').hidden=(next==='PLAYING');
@@ -100,8 +101,8 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     action=next;$('primary').textContent=label;$('primary').disabled=false;$('secondary').hidden=!recalibrate;$('result-stats').hidden=next!=='replay';
   }
   function hideOverlay(){ $('overlay').hidden=true; }
-  function resetFilter(){gaze=null;gazeAt=0;gazeFilter.reset();insideTarget=false;prevEye=null;eyeWindow=[];eyeStep=0;eyeSpread=0;eyeSpeed=0;pointAnchor=null;eyeAnchor=null;}
-  function clearGaze(){ resetFilter();raw=null;lastAt=0;good=false;lastSampleId=null; }
+  function resetFilter(keepPrevEye=false){gaze=null;gazeAt=0;gazeFilter.reset();insideTarget=false;if(!keepPrevEye)prevEye=null;eyeWindow=[];eyeStep=0;eyeSpread=0;eyeSpeed=0;pointAnchor=null;eyeAnchor=null;}
+  function clearGaze(){ resetFilter(false);raw=null;lastAt=0;good=false;lastSampleId=null;prevPointAnchor=null;centerEyeAnchor=null; }
   function shutdown(){
     generation++;pumpToken++;connected=false;busy=false;if(worker){worker.terminate();worker=null;}
     for(const p of pending.values()){clearTimeout(p.timer);p.reject(new Error('엔진을 다시 시작합니다.'));}pending.clear();
@@ -152,36 +153,67 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     const tierInfo=getTierData(finalScore);
     return {retention,avgSmooth,currentScore,finalScore,age,topPct,tier:tierInfo.name,tierKey:tierInfo.key,tierInfo:{...tierInfo,topPct}};
   }
-  function computeIrisRatio(l,outer,inner,iris){
-    const a=l[outer],b=l[inner],c=l[iris];
-    if(!a||!b||!c)return {x:.5,y:.5};
-    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1e-5;
+  function computeIrisRatio(l,outer,inner,iris,top,bottom){
+    const a=l[outer],b=l[inner],c=l[iris],t=l[top],d=l[bottom];
+    if(!a||!b||!c)return {x:0,y:0};
+    let dx=(b.x-a.x)*640,dy=(b.y-a.y)*480;
+    if(dx<0){dx=-dx;dy=-dy;}
+    const len=Math.hypot(dx,dy)||1e-5;
     const ux=dx/len,uy=dy/len,vx=-uy,vy=ux;
-    const ox=c.x-(a.x+b.x)/2,oy=c.y-(a.y+b.y)/2;
-    return {x:(ox*ux+oy*uy)/len,y:(ox*vx+oy*vy)/len};
+    const ox=(c.x-(a.x+b.x)/2)*640,oy=(c.y-(a.y+b.y)/2)*480;
+    const rx=(ox*ux+oy*uy)/len;
+    let ry=(ox*vx+oy*vy)/len;
+    if(t&&d){
+      const lidMidY=(t.y+d.y)/2,cornerMidY=(a.y+b.y)/2;
+      ry=ry*.65+((c.y-lidMidY)*480/len)*.20+((lidMidY-cornerMidY)*480/len)*.35;
+    }
+    return {x:rx,y:ry};
+  }
+  function checkMovedFromPrevious(){
+    if(!prevEye||!['CALIBRATING','VALIDATING'].includes(state)||point===0)return {moved:true,reason:''};
+    if(prevPointAnchor){
+      const targetStep=Math.hypot(target.x-prevPointAnchor.tx,target.y-prevPointAnchor.ty);
+      if(targetStep>.18){
+        const irisShift=Math.hypot(prevEye.nx-prevPointAnchor.nx,prevEye.ny-prevPointAnchor.ny);
+        const headShift=prevPointAnchor.cx!==undefined?Math.hypot((prevEye.cx-prevPointAnchor.cx)*7,(prevEye.cy-prevPointAnchor.cy)*7):0;
+        const reqShift=clamp(targetStep*.21,.062,.092);
+        if(irisShift+headShift*.40<reqShift){
+          return {moved:false,reason:'이전 위치에 시선이 머물러 있어요 · 새로 이동한 원으로 눈을 옮겨 주세요'};
+        }
+      }
+    }
+    if(centerEyeAnchor&&Math.hypot(target.x-.5,target.y-.5)>.22){
+      const irisCenterShift=Math.hypot(prevEye.nx-centerEyeAnchor.nx,prevEye.ny-centerEyeAnchor.ny);
+      const headCenterShift=centerEyeAnchor.cx!==undefined?Math.hypot((prevEye.cx-centerEyeAnchor.cx)*7,(prevEye.cy-centerEyeAnchor.cy)*7):0;
+      if(irisCenterShift+headCenterShift*.40<.065){
+        return {moved:false,reason:'이동한 원으로 눈을 옮기세요'};
+      }
+    }
+    return {moved:true,reason:''};
   }
   function isEyeRollingOnPoint(){
     if(!prevEye||eyeWindow.length<3)return {rolling:false,reason:''};
-    if(eyeStep>.26||eyeSpread>.32)return {rolling:true,reason:'눈이 움직였어요 · 원 중심을 고정해 바라보세요'};
-    if(pointAnchor){
-      const anchorDist=Math.hypot(prevEye.nx-pointAnchor.nx,prevEye.ny-pointAnchor.ny);
-      if(anchorDist>.35)return {rolling:true,severe:anchorDist>.55,reason:'눈이 돌아갔어요 · 원 중심을 바라봐 주세요'};
-    }
+    const moveCheck=checkMovedFromPrevious();
+    if(!moveCheck.moved)return {rolling:true,unmoved:true,reason:'새 원으로 눈을 옮기세요'};
+    if(eyeStep>.26||eyeSpread>.32)return {rolling:true,reason:'원 중심을 고정해 바라보세요'};
+    if(!pointAnchor)return {rolling:true,reason:'원 중심을 바라보세요'};
+    const anchorDist=Math.hypot(prevEye.nx-pointAnchor.nx,prevEye.ny-pointAnchor.ny);
+    if(anchorDist>.34)return {rolling:true,severe:anchorDist>.54,reason:'원 중심을 바라보세요'};
     return {rolling:false,reason:''};
   }
   function onResult(r,at){
     lastAt=at;inference=r.durations?.total||0;tensors=r.tensors||0;
     const l=r.landmarks||[];
-    if(!l.length){good=false;resetFilter();issue='얼굴을 카메라에 보여 주세요';return;}
+    if(!l.length){good=false;resetFilter();issue='얼굴을 비춰 주세요';return;}
     const center={x:(l[33].x+l[263].x)/2,y:(l[33].y+l[263].y)/2};
     pose={...center,head:r.headVector};
-    if(r.gazeState!=='open'){good=false;resetFilter();issue='눈을 편안하게 떠 주세요';return;}
-    if(basePose && Math.hypot(center.x-basePose.x,center.y-basePose.y)>.14){good=false;resetFilter();issue='보정할 때 앉은 위치로 돌아와 주세요';return;}
+    if(r.gazeState!=='open'){good=false;resetFilter();issue='눈을 떠 주세요';return;}
+    if(basePose && Math.hypot(center.x-basePose.x,center.y-basePose.y)>.14){good=false;resetFilter();issue='처음 위치로 돌아와 주세요';return;}
     if(l.length>=474){
-      const leftI=computeIrisRatio(l,33,133,468),rightI=computeIrisRatio(l,362,263,473);
+      const leftI=computeIrisRatio(l,33,133,468,159,145),rightI=computeIrisRatio(l,362,263,473,386,374);
       const rawX=(leftI.x+rightI.x)/2,rawY=(leftI.y+rightI.y)/2;
       const sx=prevEye?prevEye.x*.45+rawX*.55:rawX,sy=prevEye?prevEye.y*.45+rawY*.55:rawY;
-      const eyeNow={x:sx,y:sy,nx:sx/.12,ny:sy/.10,cx:center.x,cy:center.y};
+      const eyeNow={x:sx,y:sy,nx:sx/.11,ny:sy/.085,cx:center.x,cy:center.y};
       eyeStep=prevEye?Math.hypot(eyeNow.nx-prevEye.nx,eyeNow.ny-prevEye.ny,(eyeNow.cx-prevEye.cx)*3,(eyeNow.cy-prevEye.cy)*3):0;
       eyeWindow.push(eyeNow);if(eyeWindow.length>5)eyeWindow.shift();
       eyeSpread=eyeWindow.length>=2?Math.max(...eyeWindow.map(e=>Math.hypot(eyeNow.nx-e.nx,eyeNow.ny-e.ny))):0;
@@ -190,7 +222,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     }
     if(!r.normPog?.every(Number.isFinite)){
       if(['ALIGN','CALIBRATING'].includes(state)){good=true;issue='';if(state==='ALIGN'){alignHistory.push(pose);if(alignHistory.length>15)alignHistory.shift();}return;}
-      good=false;issue='시선 출력을 기다리고 있어요';return;
+      good=false;issue='시선 인식 대기 중';return;
     }
     good=true;issue='';
     if(r.sampleId!==undefined){if(r.sampleId===lastSampleId)return;lastSampleId=r.sampleId;}
@@ -206,10 +238,11 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
       prevEye=eyeNow;
     }
     if(['CALIBRATING','VALIDATING','COUNTDOWN'].includes(state)&&phaseTime>=.45&&prevEye){
-      if(!pointAnchor&&eyeWindow.length>=3&&eyeSpread<.30){
-        pointAnchor={nx:median(eyeWindow.map(e=>e.nx)),ny:median(eyeWindow.map(e=>e.ny))};
-      }else if(pointAnchor&&eyeStep<.22){
-        pointAnchor={nx:pointAnchor.nx*.9+prevEye.nx*.1,ny:pointAnchor.ny*.9+prevEye.ny*.1};
+      const movedOk=checkMovedFromPrevious().moved;
+      if(!pointAnchor&&movedOk&&eyeWindow.length>=3&&eyeSpread<.30){
+        pointAnchor={nx:median(eyeWindow.map(e=>e.nx)),ny:median(eyeWindow.map(e=>e.ny)),cx:prevEye.cx,cy:prevEye.cy};
+      }else if(pointAnchor&&movedOk&&eyeStep<.22){
+        pointAnchor={nx:pointAnchor.nx*.9+prevEye.nx*.1,ny:pointAnchor.ny*.9+prevEye.ny*.1,cx:prevEye.cx,cy:prevEye.cy};
       }
     }
     raw=p;
@@ -222,7 +255,12 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
         busy=true;const capturePoint=point,captureState=state;
         try{
           let frame;
-          if(worker.needsFrame!==false){captureCanvas.width=640;captureCanvas.height=Math.round(640*(video.videoHeight||480)/(video.videoWidth||640));captureCtx.drawImage(video,0,0,captureCanvas.width,captureCanvas.height);frame=captureCtx.getImageData(0,0,captureCanvas.width,captureCanvas.height);}
+          if(worker.needsFrame!==false){
+            const cw=480,ch=Math.round(480*(video.videoHeight||480)/(video.videoWidth||640));
+            if(captureCanvas.width!==cw||captureCanvas.height!==ch){captureCanvas.width=cw;captureCanvas.height=ch;}
+            captureCtx.drawImage(video,0,0,cw,ch);
+            frame=captureCtx.getImageData(0,0,cw,ch);
+          }
           const rect=$('stage').getBoundingClientRect();
           const canCapture=state==='CALIBRATING'&&phaseTime>.45&&!isEyeRollingOnPoint().rolling;
           const r=await request('step',{frame,timestamp:performance.now(),capture:canCapture,point:capturePoint,
@@ -233,39 +271,39 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
         }catch(e){if(token!==pumpToken)return;lastPumpError=e.message;workerError(e.message);return;}
         finally{if(token===pumpToken)busy=false;}
       }
-      await new Promise(r=>setTimeout(r,35));
+      await new Promise(r=>setTimeout(r,42));
     }
   }
   async function connect(){
-    if(state==='CONNECTING')return;shutdown();const token=generation;runToken++;setState('CONNECTING');$('primary').disabled=true;$('primary').textContent='모델 준비 중…';status('모델 준비 중');
-    quality=null;report=null;basePose=null;centerEyeAnchor=null;clearGaze();focusScore=0;smoothnessSum=0;smoothnessTime=0;streakTime=0;breakCount=0;wasBroken=false;lureSlot=-1;activeLures=[];elapsed=0;validTime=0;insideTime=0;adaptedSamples=0;
+    if(state==='CONNECTING')return;shutdown();const token=generation;runToken++;setState('CONNECTING');$('primary').disabled=true;$('primary').textContent='준비 중…';status('모델 준비 중');
+    quality=null;report=null;basePose=null;centerEyeAnchor=null;prevPointAnchor=null;clearGaze();focusScore=0;smoothnessSum=0;smoothnessTime=0;streakTime=0;breakCount=0;wasBroken=false;lureSlot=-1;activeLures=[];elapsed=0;validTime=0;insideTime=0;adaptedSamples=0;
     try{
       if(location.protocol==='file:')throw new Error('로컬 서버 주소(http://127.0.0.1:8765)에서 열어 주세요.');
-      if(!navigator.mediaDevices?.getUserMedia)throw new Error('카메라를 사용할 수 있는 HTTPS 또는 localhost에서 열어 주세요.');
+      if(!navigator.mediaDevices?.getUserMedia)throw new Error('HTTPS 또는 localhost에서 열어 주세요.');
       worker=window.EyeDemoEngine?new window.EyeDemoEngine():new Worker('engine-worker.js');worker.onmessage=e=>{const p=pending.get(e.data.id);if(!p)return;clearTimeout(p.timer);pending.delete(e.data.id);if(e.data.error)p.reject(new Error(e.data.error));else p.resolve(e.data.result);};
       worker.onerror=e=>workerError(e.message||'AI 작업 스레드 오류');
       const initialized=await request('init',{baseUrl:new URL('.',location.href).href});backend=initialized.backend||'test';if(token!==generation)return;
-      if(worker.ownsCamera){stream=worker.getStream();if(!stream)throw new Error('추적 엔진의 카메라 연결을 확인해 주세요.');}
+      if(worker.ownsCamera){stream=worker.getStream();if(!stream)throw new Error('카메라 연결을 확인해 주세요.');}
       else {
       let permissionTimer;
       const cameraPromise=navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}});
       cameraPromise.then(s=>{if(token!==generation)for(const track of s.getTracks())track.stop();},()=>{});
-      try{stream=await Promise.race([cameraPromise,new Promise((_,reject)=>{permissionTimer=setTimeout(()=>reject(new Error('카메라 권한을 허용한 뒤 다시 연결해 주세요.')),30000);})]);}finally{clearTimeout(permissionTimer);}
+      try{stream=await Promise.race([cameraPromise,new Promise((_,reject)=>{permissionTimer=setTimeout(()=>reject(new Error('카메라 권한을 허용해 주세요.')),30000);})]);}finally{clearTimeout(permissionTimer);}
       }
       if(token!==generation){for(const track of stream.getTracks())track.stop();return;}
       video.srcObject=stream;await video.play();connected=true;alignHistory=[];stable=0;setState('ALIGN');hideOverlay();
-      $('stage-title').textContent='카메라에 얼굴을 편안히 맞춰 주세요';$('stage-copy').textContent='오른쪽 큰 얼굴 화면에 맞춰 앉으면 원 채우기 보정을 시작합니다.';status('얼굴 위치 확인 중');
+      $('stage-title').textContent='얼굴을 가이드에 맞춰 주세요';$('stage-copy').textContent='우측 카메라 원 안에 얼굴을 맞추면 자동 시작됩니다';status('위치 맞춤');
       $('preview-guide').hidden=false;void pump(++pumpToken);
       stream.getVideoTracks()[0].addEventListener('ended',()=>{if(connected)workerError('카메라 연결이 끊겼습니다.');});
-    }catch(e){if(token!==generation)return;const messages={NotAllowedError:'카메라 권한을 허용해 주세요.',NotFoundError:'연결된 카메라를 찾지 못했습니다.',NotReadableError:'카메라를 사용하는 다른 앱을 닫고 다시 연결해 주세요.'};workerError(messages[e.name]||e.message);}
+    }catch(e){if(token!==generation)return;const messages={NotAllowedError:'카메라 권한을 허용해 주세요.',NotFoundError:'카메라를 찾지 못했습니다.',NotReadableError:'카메라를 사용 중인 다른 앱을 닫아 주세요.'};workerError(messages[e.name]||e.message);}
   }
   function startSequence(next){
-    setState(next);point=0;phaseTime=0;collectTime=0;samples=0;validation=[];errors=[];target={...(next==='CALIBRATING'?points:checks)[0]};resetFilter();
-    $('stage-title').textContent=next==='CALIBRATING'?'원을 바라보면 원 안이 초록색으로 채워집니다':'보정 상태를 확인합니다';
-    $('stage-copy').textContent='눈이 다른 곳으로 돌아가면 채워지던 원이 줄어듭니다. 원 중심을 끝까지 응시해 주세요.';status(next==='CALIBRATING'?'시선 보정 중':'보정 검증 중');
+    setState(next);point=0;phaseTime=0;collectTime=0;samples=0;validation=[];errors=[];prevPointAnchor=null;if(next==='CALIBRATING')centerEyeAnchor=null;target={...(next==='CALIBRATING'?points:checks)[0]};resetFilter(true);
+    $('stage-title').textContent=next==='CALIBRATING'?'초록 원을 바라보세요':'정확도를 확인합니다';
+    $('stage-copy').textContent='원이 이동하면 눈도 함께 옮겨 주세요';status(next==='CALIBRATING'?'시선 보정':'보정 확인');
   }
   async function train(){
-    setState('TRAINING');const token=runToken;status('개인 보정 학습 중');$('stage-title').textContent='나에게 맞게 모델을 보정합니다';$('stage-copy').textContent='잠시만 기다려 주세요.';
+    setState('TRAINING');const token=runToken;status('보정 학습 중');$('stage-title').textContent='시선 모델을 보정 중입니다';$('stage-copy').textContent='잠시만 기다려 주세요';
     try{const r=await request('adapt');if(token!==runToken||!connected)return;adaptedSamples=r.samples;adaptation=r.adaptation||'test';startSequence('VALIDATING');}
     catch(e){if(token===runToken&&connected){adaptation='stability-fallback';startSequence('VALIDATING');}}
   }
@@ -273,7 +311,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     phaseTime+=dt;const tracked=good&&performance.now()-lastAt<500&&!document.hidden;
     if(!tracked){
       collectTime=Math.max(0,collectTime-dt*.9);
-      notice(issue||'눈 인식을 기다리고 있어요','warn');
+      notice(issue||'인식 대기 중','warn');
       positionNotice();
       return;
     }
@@ -281,7 +319,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     const check=isEyeRollingOnPoint();
     if(check.rolling){
       collectTime=Math.max(0,collectTime-dt*1.1);
-      if(check.severe)pointAnchor=null;
+      if(check.severe||check.unmoved)pointAnchor=null;
       notice(check.reason,'warn');
       positionNotice();
       return;
@@ -292,10 +330,15 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     const list=state==='CALIBRATING'?points:checks;
     const ready=state==='CALIBRATING'?(collectTime>=1.2&&(samples>=2||collectTime>=1.65)):(collectTime>=1.1&&(validation.length>=3||collectTime>=1.45));
     if(!ready)return;
+    const finishedAnchor=pointAnchor||(prevEye?{nx:prevEye.nx,ny:prevEye.ny,cx:prevEye.cx,cy:prevEye.cy}:null);
+    if(finishedAnchor){
+      prevPointAnchor={...finishedAnchor,tx:target.x,ty:target.y};
+      if(point===0&&Math.hypot(target.x-.5,target.y-.5)<.08)centerEyeAnchor={...prevPointAnchor};
+    }
     if(state==='VALIDATING')errors.push({point:{...target},predictions:validation.length?[...validation]:[{...target}]});
     point++;
     if(point===list.length){if(state==='CALIBRATING')void train();else finishValidation();return;}
-    target={...list[point]};phaseTime=0;collectTime=0;samples=0;validation=[];resetFilter();
+    target={...list[point]};phaseTime=0;collectTime=0;samples=0;validation=[];resetFilter(true);
   }
   function finishValidation(){
     const all=errors.flatMap(g=>g.predictions.map(p=>Math.hypot(p.x-g.point.x,p.y-g.point.y))),perPoint=errors.map(g=>median(g.predictions.map(p=>Math.hypot(p.x-g.point.x,p.y-g.point.y))));
@@ -305,22 +348,22 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     const strictFailed=!Number.isFinite(report.median)||report.median>limits.median||report.p90>limits.p90;
     quality={...report,stabilityMode:strictFailed};
     radius=clamp((Number.isFinite(report.p90)?report.p90:.15)+gameProfile.radius.padding,.15,.22);
-    setState('READY');status('체험 준비 완료','good');
-    $('quality').textContent=strictFailed?'홍채 정밀 추적 모드 적용':`보정 완료 · 90% 오차 범위 ${report.px}px / ${report.py}px`;
+    setState('READY');status('준비 완료','good');
+    $('quality').textContent=strictFailed?'정밀 추적 모드':`보정 완료 (${report.px}×${report.py}px)`;
     $('secondary').textContent='다시 보정';
-    overlay('준비됐어요.','아래 안내된 [초록색 에메랄드 타겟 구슬] 하나만 끝까지 눈으로 따라가세요.\n주변에 강렬하게 나타나는 함정 타겟과 팝업에 한눈을 팔면 즉시 감점됩니다 (30초 · 1000점 만점).','play','30초 챌린지 시작',true);
+    overlay('준비 완료!','초록 구슬만 눈으로 끝까지 따라가세요 (30초)','play','챌린지 시작',true);
   }
-  function countdown(){if(!quality)quality={median:.09,p90:.15,perPoint:[],stabilityMode:true};hideOverlay();setState('COUNTDOWN');target={x:.5,y:.5};prevTarget={x:.5,y:.5};phaseTime=0;elapsed=0;validTime=0;insideTime=0;focusScore=0;smoothnessSum=0;smoothnessTime=0;streakTime=0;breakCount=0;wasBroken=false;lureSlot=-1;activeLures=[];gazeBias={x:0,y:0};resetFilter();paused=true;recovery=0;away=0;pauseAt=0;
-    $('stage-title').textContent='화면 중앙의 초록색 타겟 구슬을 응시하세요';$('stage-copy').textContent='구슬이 100% 채워지면 30초 동안 궤도를 따라 이동합니다. 구슬 한가운데 점수를 보며 끝까지 따라가세요.';
+  function countdown(){if(!quality)quality={median:.09,p90:.15,perPoint:[],stabilityMode:true};hideOverlay();setState('COUNTDOWN');target={x:.5,y:.5};prevTarget={x:.5,y:.5};renderOrb={x:.5,y:.5};orbTrail=[];phaseTime=0;elapsed=0;validTime=0;insideTime=0;focusScore=0;smoothnessSum=0;smoothnessTime=0;streakTime=0;breakCount=0;wasBroken=false;lureSlot=-1;activeLures=[];gazeBias={x:0,y:0};resetFilter();paused=true;recovery=0;away=0;pauseAt=0;
+    $('stage-title').textContent='중앙 초록 구슬을 바라보세요';$('stage-copy').textContent='구슬이 채워지면 30초 챌린지가 시작됩니다';
   }
   function finish(aborted=false){
     setState('RESULT');notice();status('체험 종료');$('result-stats').replaceChildren();
     const m=computeMetrics();
-    const ageComment=m.finalScore>=850?'프로게이머급 초고밀도 동체시력':m.finalScore>=680?'20대 수준의 정교한 시선 제어력':m.finalScore>=500?'평균 수준의 시선 유지력':'시선 이탈 및 흔들림 감점 반영';
+    const ageComment=m.finalScore>=850?'프로게이머급 동체시력':m.finalScore>=680?'20대 수준 시선 제어':m.finalScore>=500?'평균 수준 집중력':'이탈·흔들림 감점';
     const cards=[
-      {value:`${m.finalScore} / 1000점`,label:'최종 집중력 스코어 (엄격 판정)',sub:`정밀 유지율 ${m.retention.toFixed(1)}% · 이탈 ${breakCount}회`},
-      {value:m.age+'세',label:'추정 시선 신체 나이',sub:ageComment},
-      {value:m.tier,label:`상위 ${m.topPct}%`,sub:`시선 집중 티어 (${m.tierKey})`,svg:m.tierInfo.svg,color:m.tierInfo.c1}
+      {value:`${m.finalScore}점`,label:'집중 스코어',sub:`유지율 ${m.retention.toFixed(0)}% · 이탈 ${breakCount}회`},
+      {value:m.age+'세',label:'시선 나이',sub:ageComment},
+      {value:m.tier,label:`상위 ${m.topPct}%`,sub:m.tierKey,svg:m.tierInfo.svg,color:m.tierInfo.c1}
     ];
     for(const c of cards){
       const div=document.createElement('div'),v=document.createElement('strong'),l=document.createElement('span'),s=document.createElement('small');
@@ -333,12 +376,12 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
       if(c.color)v.style.color=c.color;
       v.textContent=c.value;l.textContent=c.label;s.textContent=c.sub;div.append(v,l,s);$('result-stats').append(div);
     }
-    const copy=aborted?'인식이 오래 끊겨 체험을 멈췄어요.\n위치를 맞추고 다시 도전해 보세요.':`최종 ${m.finalScore} / 1000점 · 정밀 유지율 ${m.retention.toFixed(1)}% · 홍채 안정도 ${Math.round(m.avgSmooth)}% (시선 이탈 ${breakCount}회)\n엄격 판정 결과 달성한 티어는 [${m.tier} · 상위 ${m.topPct}%] 입니다.`;
-    overlay(aborted?'잠시 쉬어도 괜찮아요':`${m.tier} 티어 달성! (상위 ${m.topPct}%)`,copy,'replay','다시 도전',true,m.tierInfo);
+    const copy=aborted?'인식이 끊겨 중단되었어요. 다시 도전해 보세요.':`유지율 ${m.retention.toFixed(0)}% · 안정도 ${Math.round(m.avgSmooth)}% · 이탈 ${breakCount}회`;
+    overlay(aborted?'잠시 쉬어가요':`${m.tier} 달성!`,copy,'replay','다시 도전',true,m.tierInfo);
   }
   function play(dt,now){
     const tracked=good&&gaze&&now-lastAt<500&&!document.hidden;
-    if(!tracked){paused=true;recovery=0;away=0;if(!pauseAt)pauseAt=now;notice(issue||'인식 대기 · 시간 정지','warn');status('인식 대기 · 시간 정지','warn');if(now-pauseAt>20000&&!document.hidden)finish(true);return;}
+    if(!tracked){paused=true;recovery=0;away=0;if(!pauseAt)pauseAt=now;notice(issue||'인식 대기','warn');status('일시 정지','warn');if(now-pauseAt>20000&&!document.hidden)finish(true);return;}
     if(paused){recovery+=dt;if(recovery<.35)return;paused=false;pauseAt=0;eyeAnchor=prevEye?{...prevEye}:eyeAnchor;notice();return;}
     elapsed=Math.min(CHALLENGE_SEC,elapsed+dt);validTime+=dt;
     prevTarget={...target};
@@ -354,7 +397,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     if(targetMoving&&prevEye&&eyeSpeed<.18){
       eyeAnchor={x:eyeAnchor.x*.88+prevEye.x*.12,y:eyeAnchor.y*.88+prevEye.y*.12,nx:eyeAnchor.nx*.88+prevEye.nx*.12,ny:eyeAnchor.ny*.88+prevEye.ny*.12};
     }else if(!targetMoving&&prevEye&&eyeSpeed<.15){
-      eyeAnchor={x:eyeAnchor.x*.95+prevEye.x*.05,y:eyeAnchor.y*.95+prevEye.y*.05,nx:eyeAnchor.nx*.95+prevEye.nx*.05,ny:eyeAnchor.ny*.95+prevEye.ny*.05};
+      eyeAnchor={x:eyeAnchor.x*.95+prevEye.x*.05,y:eyeAnchor.y*.95+prevEye.y*.05,nx:eyeAnchor.nx*.95+prevEye.nx*.05,ny:eyeAnchor.ny*.95+prevEye.ny*.12};
     }
     const eyeDrift=eyeAnchor&&prevEye?Math.hypot(prevEye.nx-eyeAnchor.nx,prevEye.ny-eyeAnchor.ny):0;
     const irisSmooth=clamp(1-Math.max(0,eyeSpeed-.038)/.16,0,1);
@@ -384,11 +427,11 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
       }
       if(away>.28){
         focusScore=Math.max(0,focusScore-48*dt);
-        notice(eyeSpeed>=.18||eyeSpread>=.18?'눈동자 흔들림 감지 (-감점) · 초록 타겟만 부드럽게 따라가세요':'타겟 이탈 감지 (-감점) · 에메랄드 구슬에 시선을 고정하세요','warn');
+        notice(eyeSpeed>=.18||eyeSpread>=.18?'눈 흔들림 (-감점)':'시선 이탈 (-감점)','warn');
       }
     }
     positionNotice();
-    status(inside?'홍채 정밀 추적 중':'시선 흔들림 · 감점 중',inside?'good':'warn');
+    status(inside?'집중 유지 중':'이탈 감점 중',inside?'good':'warn');
     if(elapsed>=CHALLENGE_SEC)finish();
   }
   const LURE_CANDIDATES=[
@@ -397,10 +440,10 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     {x:.34,y:.30},{x:.66,y:.30},{x:.34,y:.70},{x:.66,y:.70}
   ];
   const LURE_STYLES=[
-    {type:'fake_orb',color:'#f43f5e',accent:'#fda4af',glow:'rgba(244,63,94,0.34)',inner:'999',label:'⚠️ FAKE TARGET'},
-    {type:'alert_box',color:'#f59e0b',accent:'#fef08a',glow:'rgba(245,158,11,0.32)',inner:'🔥 +500점 찬스?!',label:'BONUS TRAP'},
-    {type:'radar_burst',color:'#a855f7',accent:'#e9d5ff',glow:'rgba(168,85,247,0.34)',inner:'LOOK!',label:'⚡ 시선 강탈 함정'},
-    {type:'siren_ring',color:'#ec4899',accent:'#fbcfe8',glow:'rgba(236,72,153,0.34)',inner:'+300?',label:'🚨 여기 보지 마세요!'}
+    {type:'fake_orb',color:'#f43f5e',accent:'#fda4af',glow:'rgba(244,63,94,0.34)',inner:'999'},
+    {type:'alert_box',color:'#f59e0b',accent:'#fef08a',glow:'rgba(245,158,11,0.32)',inner:'🔥 +500점?!'},
+    {type:'radar_burst',color:'#a855f7',accent:'#e9d5ff',glow:'rgba(168,85,247,0.34)',inner:'LOOK!'},
+    {type:'siren_ring',color:'#ec4899',accent:'#fbcfe8',glow:'rgba(236,72,153,0.34)',inner:'+300?'}
   ];
   function drawDistractors(now,w,h){
     if(elapsed<1.0)return;
@@ -436,16 +479,13 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
       ctx.save();
       ctx.globalAlpha=alpha;
       ctx.translate(dx,dy);
-      // Expanding shockwave ring
       const wave=((now/11+lure.seed*18)%54);
       ctx.beginPath();ctx.arc(0,0,22+wave,0,2*Math.PI);
       ctx.strokeStyle=style.color;ctx.lineWidth=2.2*(1-wave/54);ctx.stroke();
-      // Large outer glow aura
       ctx.beginPath();ctx.arc(0,0,46*popScale,0,2*Math.PI);
       ctx.fillStyle=style.glow;ctx.fill();
       ctx.scale(popScale,popScale);
       if(style.type==='fake_orb'){
-        // Giant decoy orb mimicking the real target
         const r=31;
         const g=ctx.createRadialGradient(-6,-6,3,0,0,r);
         g.addColorStop(0,'#fecdd3');g.addColorStop(.5,'#f43f5e');g.addColorStop(1,'#9f1239');
@@ -455,15 +495,13 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
         ctx.font='900 13px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle='#ffffff';ctx.fillText(style.inner,0,1);
       }else if(style.type==='alert_box'){
-        // High-impact flashing alert banner
-        const bw=138,bh=42;
+        const bw=122,bh=40;
         ctx.fillStyle='rgba(24,16,6,0.92)';
         ctx.strokeStyle=style.color;ctx.lineWidth=2.6;
         ctx.beginPath();ctx.roundRect(-bw/2,-bh/2,bw,bh,14);ctx.fill();ctx.stroke();
         ctx.font='900 13px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle=style.accent;ctx.fillText(style.inner,0,1);
       }else if(style.type==='radar_burst'){
-        // Large spinning 8-point starburst + core
         ctx.save();ctx.rotate(now/320);
         ctx.beginPath();
         for(let i=0;i<8;i++){const r=i%2===0?36:14,a=i*Math.PI/4;if(i===0)ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);else ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);}
@@ -474,7 +512,6 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
         ctx.font='900 11px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle='#ffffff';ctx.fillText(style.inner,0,1);
       }else{
-        // Siren double reticle target
         ctx.save();ctx.rotate(-now/280);
         ctx.beginPath();ctx.arc(0,0,32,0,2*Math.PI);ctx.setLineDash([10,6]);ctx.lineWidth=3;ctx.strokeStyle=style.color;ctx.stroke();
         ctx.restore();
@@ -482,10 +519,6 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
         ctx.font='900 12px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
         ctx.fillStyle='#ffffff';ctx.fillText(style.inner,0,1);
       }
-      // Top warning label pill
-      ctx.font='800 11px "Pretendard",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillStyle=style.accent;
-      ctx.fillText(style.label,0,-42);
       ctx.restore();
     }
     ctx.restore();
@@ -523,7 +556,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     ctx.globalAlpha=alpha;
     ctx.font='700 12px "Pretendard","Segoe UI",sans-serif';
     const padX=12,boxH=26,tw=ctx.measureText(text).width,boxW=tw+padX*2;
-    const bx=x-boxW/2,by=y-68;
+    const bx=x-boxW/2,by=y-64;
     ctx.fillStyle='rgba(6,78,59,0.88)';
     ctx.strokeStyle='rgba(52,211,153,0.8)';
     ctx.lineWidth=1.4;
@@ -532,7 +565,7 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
     ctx.fillText(text,x,by+boxH/2);
     ctx.restore();
   }
-  function draw(now){
+  function draw(now,dt=.016){
     const {w,h}=size;ctx.clearRect(0,0,w,h);if(!$('overlay').hidden||['ALIGN','IDLE','CONNECTING'].includes(state))return;
     const x=target.x*w,y=target.y*h;
     if(state==='TRACE')for(const p of checks){ctx.beginPath();ctx.arc(p.x*w,p.y*h,10,0,2*Math.PI);ctx.strokeStyle='rgba(52,211,153,0.45)';ctx.lineWidth=2;ctx.stroke();}
@@ -543,75 +576,95 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
       return;
     }
     if(state==='COUNTDOWN'){
+      renderOrb={x:target.x,y:target.y};orbTrail=[];
       const p=clamp(phaseTime/3,0,1);
       const countNum=String(Math.max(1,Math.ceil(3-phaseTime)));
       drawProgressCircle(x,y,32,p,countNum,'count');
-      drawTargetCallout(x,y,'🎯 이 초록 구슬을 끝까지 따라가세요');
+      drawTargetCallout(x,y,'🎯 초록 구슬 응시');
       return;
     }
     if(state==='PLAYING'){
       drawDistractors(now,w,h);
+      const smoothAlpha=1-Math.exp(-Math.max(dt,.006)*38);
+      renderOrb.x+=(target.x-renderOrb.x)*smoothAlpha;
+      renderOrb.y+=(target.y-renderOrb.y)*smoothAlpha;
+      const ox=renderOrb.x*w,oy=renderOrb.y*h;
       if($('mode').value!=='fixed'){
+        orbTrail.push({x:ox,y:oy});
+        if(orbTrail.length>14)orbTrail.shift();
         ctx.save();
-        for(let step=1;step<=7;step++){
-          const future=targetPositionAt(Math.min(CHALLENGE_SEC,elapsed+step*.16),$('mode').value);
+        for(let i=0;i<orbTrail.length-1;i++){
+          const pt=orbTrail[i],ratio=(i+1)/orbTrail.length;
           ctx.beginPath();
-          ctx.arc(future.x*w,future.y*h,Math.max(2,5.5-step*.55),0,2*Math.PI);
-          ctx.fillStyle=`rgba(52,211,153,${(0.28-step*0.032).toFixed(3)})`;
+          ctx.arc(pt.x,pt.y,ratio*11,0,2*Math.PI);
+          ctx.fillStyle=`rgba(16,185,129,${(ratio*0.16).toFixed(3)})`;
+          ctx.fill();
+        }
+        for(let step=1;step<=6;step++){
+          const future=targetPositionAt(Math.min(CHALLENGE_SEC,elapsed+step*.14),$('mode').value);
+          ctx.beginPath();
+          ctx.arc(future.x*w,future.y*h,Math.max(2,5-step*.5),0,2*Math.PI);
+          ctx.fillStyle=`rgba(52,211,153,${(0.24-step*0.03).toFixed(3)})`;
           ctx.fill();
         }
         ctx.restore();
       }
       const shaking=!$('notice').hidden;
       const r=32;
-      ctx.beginPath();ctx.arc(x,y,r+12+Math.sin(now/500)*2.4,0,2*Math.PI);ctx.fillStyle=shaking?'rgba(245,158,11,0.20)':'rgba(16,185,129,0.20)';ctx.fill();
-      const orbGrad=ctx.createRadialGradient(x-7,y-7,3,x,y,r);
+      ctx.beginPath();ctx.arc(ox,oy,r+12+Math.sin(now/420)*2.4,0,2*Math.PI);ctx.fillStyle=shaking?'rgba(245,158,11,0.20)':'rgba(16,185,129,0.20)';ctx.fill();
+      ctx.save();ctx.translate(ox,oy);ctx.rotate(now/480);
+      ctx.beginPath();ctx.arc(0,0,r+5.5,0,Math.PI*1.35);
+      ctx.strokeStyle=shaking?'rgba(251,191,36,0.55)':'rgba(52,211,153,0.62)';ctx.lineWidth=1.8;ctx.stroke();
+      ctx.restore();
+      const orbGrad=ctx.createRadialGradient(ox-7,oy-7,3,ox,oy,r);
       if(shaking){orbGrad.addColorStop(0,'#fde68a');orbGrad.addColorStop(.55,'#f59e0b');orbGrad.addColorStop(1,'#b45309');}
       else{orbGrad.addColorStop(0,'#a7f3d0');orbGrad.addColorStop(.5,'#10b981');orbGrad.addColorStop(1,'#047857');}
-      ctx.beginPath();ctx.arc(x,y,r,0,2*Math.PI);ctx.fillStyle=orbGrad;ctx.fill();
+      ctx.beginPath();ctx.arc(ox,oy,r,0,2*Math.PI);ctx.fillStyle=orbGrad;ctx.fill();
       ctx.lineWidth=2.4;ctx.strokeStyle=shaking?'rgba(251,191,36,0.85)':'rgba(52,211,153,0.92)';ctx.stroke();
-      // Inner contrast core for live focus score display
-      ctx.beginPath();ctx.arc(x,y,r*.68,0,2*Math.PI);
+      ctx.beginPath();ctx.arc(ox,oy,r*.68,0,2*Math.PI);
       ctx.fillStyle=shaking?'rgba(45,20,4,0.84)':'rgba(4,26,20,0.84)';ctx.fill();
       ctx.lineWidth=1.2;ctx.strokeStyle=shaking?'rgba(251,191,36,0.45)':'rgba(52,211,153,0.45)';ctx.stroke();
       const liveScore=Math.round(clamp(focusScore,0,1000));
       ctx.font='800 13px "Pretendard","Segoe UI",sans-serif';
       ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle=shaking?'#fde68a':'#ecfdf5';
-      ctx.fillText(String(liveScore),x,y+0.5);
-      if(elapsed<3.8){
-        const calloutAlpha=clamp((3.8-elapsed)/1.2,0,1);
-        drawTargetCallout(x,y,'🎯 추적 타겟 (중앙 점수 응시)',calloutAlpha);
+      ctx.fillText(String(liveScore),ox,oy+0.5);
+      if(elapsed<2.4){
+        const calloutAlpha=clamp((2.4-elapsed)/.9,0,1);
+        drawTargetCallout(ox,oy,'🎯 초록 구슬 응시',calloutAlpha);
       }
     }
     if($('show-gaze').checked&&gaze&&now-lastAt<500&&!['CALIBRATING','VALIDATING'].includes(state)){ctx.beginPath();ctx.arc(clamp(gaze.x,0,1)*w,clamp(gaze.y,0,1)*h,7,0,2*Math.PI);ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.stroke();}
   }
   function tick(now){
-    requestAnimationFrame(tick);const dt=lastLoop?Math.min(.08,(now-lastLoop)/1000):0;lastLoop=now;
+    requestAnimationFrame(tick);const dt=lastLoop?Math.min(.05,Math.max(.001,(now-lastLoop)/1000)):.016;lastLoop=now;
     if(!document.hidden){
       if(state==='ALIGN'){
         const centered=good&&pose&&now-lastAt<500&&pose.x>.28&&pose.x<.72&&pose.y>.18&&pose.y<.68;
         const fixed=centered&&alignHistory.length>=6&&alignHistory.slice(-6).every(p=>Math.hypot(p.x-pose.x,p.y-pose.y)<.02);
-        stable=fixed?stable+dt:0;$('camera-caption').textContent=fixed?'그 자세로 잠시 기다려 주세요.':'얼굴과 눈이 카메라에 잘 보이도록 편안히 앉아 주세요.';
+        stable=fixed?stable+dt:0;$('camera-caption').textContent=fixed?'잠시만 자세를 유지해 주세요':'원 안에 얼굴을 맞춰 주세요';
         if(stable>=.85){basePose={...pose};calibrationRect={...$('stage').getBoundingClientRect().toJSON(),vw:innerWidth,vh:innerHeight};$('preview-guide').hidden=true;startSequence('CALIBRATING');}
       }else if(state==='CALIBRATING'||state==='VALIDATING')sequence(dt);
       else if(state==='COUNTDOWN'){
         if(good&&gaze&&now-lastAt<500&&eyeSpeed<.28)phaseTime+=dt;
-        if(!good)notice(issue||'눈 인식을 기다리고 있어요','warn');
-        else if(eyeSpeed>=.28)notice('눈이 움직였어요 · 구슬 중심을 바라봐 주세요','warn');
+        if(!good)notice(issue||'인식 대기 중','warn');
+        else if(eyeSpeed>=.28)notice('구슬 중심을 바라보세요','warn');
         else notice();
-        if(phaseTime>=3){setState('PLAYING');eyeAnchor=prevEye?{...prevEye}:null;gazeBias=gaze?{x:gaze.x-target.x,y:gaze.y-target.y}:{x:0,y:0};}
+        if(phaseTime>=3){setState('PLAYING');renderOrb={x:target.x,y:target.y};orbTrail=[];eyeAnchor=prevEye?{...prevEye}:null;gazeBias=gaze?{x:gaze.x-target.x,y:gaze.y-target.y}:{x:0,y:0};}
       }
     }
     if(state==='PLAYING')play(dt,now);
-    draw(now);
-    $('timer').textContent=Math.ceil(CHALLENGE_SEC-elapsed);
-    const retentionPct=validTime>.2?clamp(insideTime/validTime*100,0,100):null;
-    $('retention').textContent=retentionPct!==null?retentionPct.toFixed(1):'—';
-    const shownScore=Math.round(clamp(focusScore,0,1000));
-    $('energy-text').textContent=`${shownScore} / 1000점`;
-    $('energy-fill').style.width=clamp(shownScore/10,0,100)+'%';
-    if(now-diagnosticAt>400){
+    draw(now,dt);
+    if(now-hudAt>75||state!=='PLAYING'){
+      hudAt=now;
+      $('timer').textContent=Math.ceil(CHALLENGE_SEC-elapsed);
+      const retentionPct=validTime>.2?clamp(insideTime/validTime*100,0,100):null;
+      $('retention').textContent=retentionPct!==null?retentionPct.toFixed(1):'—';
+      const shownScore=Math.round(clamp(focusScore,0,1000));
+      $('energy-text').textContent=`${shownScore} / 1000점`;
+      $('energy-fill').style.width=clamp(shownScore/10,0,100)+'%';
+    }
+    if(now-diagnosticAt>450){
       diagnosticAt=now;
       const m=computeMetrics();
       $('diagnostics').textContent=`엔진: WebEyeTrack / BlazeGaze CNN\n가속: ${backend||'준비 중'}\n개인 보정: ${quality?.stabilityMode?'홍채 정밀 추적 모드':adaptation||'준비 중'}\n상태: ${state}\n눈 인식: ${good?'정상':issue||'대기'}\n추론: ${Math.round(inference)}ms\n집중 스코어: ${m.currentScore} / 1000점 (예상 나이 ${m.age}세 / ${m.tier} · 상위 ${m.topPct}%)\n타겟 유지율: ${m.retention.toFixed(1)}% · 홍채 안정도: ${Math.round(m.avgSmooth)}% · 이탈: ${breakCount}회\n눈 흔들림 속도: ${eyeSpeed.toFixed(3)}\n시선: ${raw?raw.x.toFixed(2)+', '+raw.y.toFixed(2):'—'}\n오류: ${lastPumpError||'없음'}`;
@@ -621,7 +674,25 @@ if(typeof module!=='undefined')module.exports=GazeStabilizer;
   $('primary').addEventListener('click',()=>{if(action==='connect')void connect();else countdown();});$('secondary').addEventListener('click',()=>{
     if(state==='FAILED'&&worker?.allowDiagnosticTrace){hideOverlay();setState('TRACE');target={x:.5,y:.5};$('show-gaze').checked=true;$('stage-title').textContent='추정 시선 위치를 확인해 보세요';$('stage-copy').textContent='연한 원 5곳을 번갈아 바라보세요. 이 화면에서는 게임 채점을 하지 않습니다.';status('시선 표시 테스트');}
     else void connect();
-  });$('recalibrate').addEventListener('click',()=>void connect());
+  });$('recalibrate').addEventListener('click',()=>{if($('settings-popover'))$('settings-popover').hidden=true;void connect();});
+  if($('settings-toggle')&&$('settings-popover')){
+    $('settings-toggle').addEventListener('click',e=>{
+      e.stopPropagation();
+      const open=$('settings-popover').hidden;
+      $('settings-popover').hidden=!open;
+      $('settings-toggle').setAttribute('aria-expanded',String(open));
+    });
+    if($('settings-close'))$('settings-close').addEventListener('click',()=>{
+      $('settings-popover').hidden=true;
+      $('settings-toggle').setAttribute('aria-expanded','false');
+    });
+    document.addEventListener('click',e=>{
+      if(!$('settings-popover').hidden&&!$('settings-dock')?.contains(e.target)){
+        $('settings-popover').hidden=true;
+        $('settings-toggle').setAttribute('aria-expanded','false');
+      }
+    });
+  }
   $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{notice('브라우저 F11 키로 전체 화면을 켤 수 있습니다.');}});
   document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'전체 화면 종료':'전체 화면';});
   document.addEventListener('visibilitychange',()=>{lastLoop=0;clearGaze();paused=true;recovery=0;away=0;pauseAt=0;});
